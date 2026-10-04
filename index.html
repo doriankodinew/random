@@ -1,122 +1,1922 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Игральная кость</title>
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Космическая паутина</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geologica:wght@300;500;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
-body {
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  background-color: #f5f5f5;
-}
-
-.scene {
-  width: 150px; /* Изменено значение ширины */
-  height: 150px; /* Изменено значение высоты */
-  perspective: 1000px;
-  margin: 50px auto;
-}
-
-.dice {
-  width: 100%;
-  height: 100%;
-  position: relative;
-  transform-style: preserve-3d;
-  cursor: pointer;
-}
-
-.side {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  background-color: #fff;
-  border: 1px solid #ddd;
-  border-radius: 10px;
-  text-align: center;
-  font-size: 48px;
-  line-height: 150px; /* Изменено значение высоты строки */
-  transform-origin: center center;
-  visibility: visible; /* Добавлено для гарантированного отображения граней */
-}
-
-.side:nth-child(1) { transform: rotateY(0deg) translateZ(75px); }
-.side:nth-child(2) { transform: rotateY(90deg) translateZ(75px); }
-.side:nth-child(3) { transform: rotateY(180deg) translateZ(75px); }
-.side:nth-child(4) { transform: rotateY(270deg) translateZ(75px); }
-.side:nth-child(5) { transform: rotateX(90deg) translateZ(75px); }
-.side:nth-child(6) { transform: rotateX(-90deg) translateZ(75px); }
-
-.roll-animation {
-  animation: roll 1s ease-in-out forwards;
-}
-
-@keyframes roll {
-  0% {
-    transform: rotateX(0deg) rotateY(0deg);
+  /* Макет: на широком экране сцена слева, панель управления и спектр справа; на узком панель идёт под сценой.
+     Единственный выбор: тёмная сцена, холодная палитра, тёплый акцент только на узлах паутины и на действиях. */
+  :root {
+    color-scheme: dark;
+    --bg: #05070e;
+    --stage: #04060c;
+    --panel: #0a0f1c;
+    --line: #1b2540;
+    --fg: #e2e8f6;
+    --mute: #8591b0;
+    --accent: #ffb061;
+    --accent-ink: #1a1004;
+    --cool: #6fd3e8;
+    --deep: #3e55c8;
+    --font-d: 'Geologica', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-m: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
   }
-  100% {
-    transform: rotateX(1080deg) rotateY(1080deg);
-  }
-}
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 400 14px/1.55 var(--font-d); }
+  button, input { font: inherit; color: inherit; }
 
-#results {
-  width: 350px;
-  margin: 0 auto;
-  text-align: left;
-  margin-top: 40px;
-  font-size: 18px;
-  color: #555;
-  background-color: #fff;
-  padding: 10px;
-  border-radius: 5px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-}
+  .app { display: grid; grid-template-columns: minmax(0, 1fr) 372px; height: 100%; }
+  .stage { position: relative; min-width: 0; min-height: 0; background: var(--stage); overflow: hidden; }
+  .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+
+  .hud { position: absolute; left: 16px; top: 14px; right: 16px; pointer-events: none; display: flex; justify-content: space-between; gap: 16px; }
+  .z { display: flex; align-items: baseline; gap: .18em; font: 800 clamp(40px, 7vw, 76px)/1 var(--font-d); letter-spacing: -.025em; font-variant-numeric: tabular-nums; }
+  .z .zl { font: 500 .32em var(--font-m); color: var(--mute); letter-spacing: 0; }
+  .meta { margin-top: 8px; font: 400 12px/1.5 var(--font-m); color: var(--mute); font-variant-numeric: tabular-nums; }
+  .meta b { color: var(--fg); font-weight: 500; }
+  .hint { font: 400 11px/1.5 var(--font-m); color: var(--mute); text-align: right; max-width: 15em; opacity: .8; }
+
+  .timeline { position: absolute; left: 16px; right: 16px; bottom: 12px; pointer-events: none; }
+  .track { position: relative; height: 3px; background: var(--line); border-radius: 2px; }
+  .track i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, var(--deep), var(--cool) 70%, var(--accent)); border-radius: 2px; }
+  .track u { position: absolute; top: -3px; width: 1px; height: 9px; background: var(--mute); opacity: .55; text-decoration: none; }
+  .track u span { position: absolute; top: 12px; left: 0; transform: translateX(-50%); font: 400 10px/1 var(--font-m); color: var(--mute); white-space: nowrap; }
+  .track u.end span { transform: translateX(-100%); }
+  .timeline .cap { margin-top: 26px; }
+
+  .busy[hidden], .glfail[hidden] { display: none; }
+  .busy, .glfail { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; font: 400 13px/1.6 var(--font-m); color: var(--mute); background: rgba(4, 6, 12, .72); }
+
+  .side { min-width: 0; overflow: auto; padding: 22px 20px 32px; background: var(--panel); border-left: 1px solid var(--line); display: flex; flex-direction: column; gap: 26px; }
+  h1 { margin: 0; font: 800 28px/1.1 var(--font-d); letter-spacing: -.02em; text-wrap: balance; }
+  .lede { margin: 10px 0 0; color: var(--mute); max-width: 36em; }
+  h2 { margin: 0 0 12px; font: 500 11px/1 var(--font-m); letter-spacing: .12em; text-transform: uppercase; color: var(--mute); }
+
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn { appearance: none; border: 1px solid var(--line); background: transparent; border-radius: 6px; padding: 9px 14px; cursor: pointer; color: var(--fg); transition: border-color .15s, background .15s; }
+  .btn:hover { border-color: var(--mute); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 500; min-width: 7.5em; }
+  .btn.primary:hover { background: #ffc17f; border-color: #ffc17f; }
+  .btn:focus-visible, .seg button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid var(--cool); outline-offset: 2px; }
+
+  .field { display: grid; grid-template-columns: 6.2em minmax(0, 1fr); align-items: center; gap: 10px; margin-top: 14px; }
+  .lab { color: var(--mute); font-size: 13px; }
+  .lab output { display: block; font: 400 11px/1.3 var(--font-m); color: var(--fg); }
+  .seg { display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .seg button { appearance: none; border: 0; background: transparent; padding: 7px 10px; cursor: pointer; color: var(--mute); font: 500 12px var(--font-m); border-left: 1px solid var(--line); }
+  .seg button:first-child { border-left: 0; }
+  .seg button[aria-pressed="true"] { background: #16213f; color: var(--fg); }
+  input[type=range] { width: 100%; accent-color: var(--accent); margin: 0; }
+  input[type=number] { width: 100%; min-width: 0; box-sizing: border-box; background: #070b16; border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; font: 400 13px var(--font-m); }
+  .chk { display: flex; gap: 8px; align-items: center; color: var(--fg); cursor: pointer; }
+  .chk input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
+  .seg.tabs { display: grid; width: 100%; margin-bottom: 14px; }
+  .seg button:disabled { opacity: .35; cursor: not-allowed; }
+  .badge { margin-top: 8px; font: 400 11px/1.4 var(--font-m); color: var(--mute); text-align: right; max-width: 18em; }
+  .badge b { color: var(--accent); font-weight: 500; }
+  .seg button:disabled { opacity: .35; cursor: not-allowed; }
+  .seedrow { display: grid; grid-template-columns: 6.2em minmax(0, 1fr); gap: 10px; align-items: center; margin-top: 14px; }
+  .seedrow .ctl { display: flex; gap: 8px; min-width: 0; }
+  .seedrow input { flex: 1 1 5em; }
+
+  .chartbox canvas { width: 100%; height: 214px; display: block; }
+  .legend { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; margin-top: 10px; font-size: 12px; color: var(--mute); }
+  .legend span { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .legend[hidden] { display: none; }
+  .legend svg { flex: none; width: 22px; height: 8px; overflow: visible; }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .stats div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .stats span { font-size: 12px; color: var(--mute); }
+  .stats b { font: 500 18px/1.2 var(--font-m); font-variant-numeric: tabular-nums; }
+  .note { margin: 10px 0 0; font-size: 12px; color: var(--mute); max-width: 38em; }
+
+  dl { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 18px; }
+  dl div { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+  dt { color: var(--mute); }
+  dd { margin: 0; font: 400 13px var(--font-m); font-variant-numeric: tabular-nums; text-align: right; }
+
+  details summary { cursor: pointer; font: 500 11px/1 var(--font-m); letter-spacing: .12em; text-transform: uppercase; color: var(--mute); padding: 2px 0; }
+  details ul { margin: 14px 0 0; padding-left: 18px; display: grid; gap: 8px; color: var(--mute); }
+  details li b { color: var(--fg); font-weight: 500; }
+
+  @media (max-width: 860px) {
+    .app { grid-template-columns: minmax(0, 1fr); height: auto; }
+    .stage { height: min(118vw, 600px); }
+    .side { overflow: visible; border-left: 0; border-top: 1px solid var(--line); padding-inline: 16px; }
+    .hint { display: none; }
+  }
+  @media (max-width: 420px) { dl { grid-template-columns: minmax(0, 1fr); } .field, .seedrow { grid-template-columns: 5.4em minmax(0, 1fr); } }
 </style>
-</head>
-<body>
-<div class="scene">
-  <div class="dice" id="dice" onclick="rollDice()">
-    <div class="side" id="side1">1</div>
-    <div class="side" id="side2">2</div>
-    <div class="side" id="side3">3</div>
-    <div class="side" id="side4">4</div>
-    <div class="side" id="side5">5</div>
-    <div class="side" id="side6">6</div>
-  </div>
-</div>
-<div id="results">Выпавшие числа: </div>
-<script>
-function rollDice() {
-    var dice = document.getElementById('dice');
-    dice.classList.remove('roll-animation');
-    void dice.offsetWidth;
-    dice.classList.add('roll-animation');
-    setTimeout(function() {
-        // Сохраняем текущие значения граней кубика
-        var sides = dice.querySelectorAll('.side');
-        var currentValues = [];
-        for (var i = 0; i < sides.length; i++) {
-            currentValues.push(sides[i].textContent);
-        }
-        
-        // Генерируем случайное число от 1 до 6
-        var result = Math.floor(Math.random() * 6) + 1;
-        
-        // Меняем местами значения граней, чтобы числа на гранях кубика соответствовали выпавшему числу
-        for (var i = 0; i < sides.length; i++) {
-            var newIdx = (i + result - 1) % 6;
-            sides[i].textContent = currentValues[newIdx];
-            sides[i].id = 'side' + currentValues[newIdx]; // Обновляем идентификаторы граней
-        }
-        
-        var resultsContainer = document.getElementById('results');
-        resultsContainer.textContent += currentValues[result - 1] + ', '; // Правильное добавление числа в контейнер результатов
-        
-        dice.classList.remove('roll-animation');
-    }, 1000);
-}
 
+<div class="app">
+  <main class="stage" id="stage">
+    <canvas id="gl" role="img" aria-label="Трёхмерная симуляция роста космической паутины: частицы тёмной материи в кубе 100 Мпк/h"></canvas>
+    <div class="hud">
+      <div>
+        <div class="z"><span class="zl">z</span><span id="zv">49,0</span></div>
+        <div class="meta">возраст <b id="age">0,05</b> млрд лет · a = <b id="av">0,020</b></div>
+        <div class="meta" id="boxnote">куб 100 Мпк/h ≈ 480 млн св. лет</div>
+      </div>
+      <div><div class="hint">тяните: вращение · колесо или щипок: масштаб</div><div class="badge" id="badge"></div></div>
+    </div>
+    <div class="timeline" aria-hidden="true"><div class="track" id="track"><i id="prog"></i></div><div class="cap"></div></div>
+    <div class="busy" id="busy">Готовлю начальные условия…</div>
+    <div class="glfail" id="glfail" hidden>Не удалось включить WebGL. Откройте страницу в браузере с аппаратным ускорением графики.</div>
+  </main>
+
+  <aside class="side">
+    <header>
+      <h1>Космическая паутина</h1>
+      <p class="lede">Расчёт N тел в расширяющейся Вселенной ΛCDM. Старт задан спектром флуктуаций по параметрам Planck, дальше работают гравитация, расширение и тёмная энергия. Всё считается в вашем браузере, на видеокарте, если она поддерживает WebGPU.</p>
+    </header>
+
+    <section aria-labelledby="h-ctl">
+      <h2 id="h-ctl">Управление</h2>
+      <div class="row">
+        <button class="btn primary" id="play" type="button">Пауза</button>
+        <button class="btn" id="restart" type="button">Заново</button>
+      </div>
+      <div class="field"><span class="lab">Расчёт</span>
+        <div class="seg" id="segEng" role="group" aria-label="Где считать"><button type="button" data-e="gpu" aria-pressed="false">Видеокарта</button><button type="button" data-e="cpu" aria-pressed="true">Процессор</button></div>
+      </div>
+      <div class="field"><span class="lab">Куб</span>
+        <div class="seg" id="segBox" role="group" aria-label="Размер куба"><button type="button" data-l="100" aria-pressed="true">100 Мпк/h</button><button type="button" data-l="600" aria-pressed="false">600 Мпк/h</button></div>
+      </div>
+      <div class="field"><span class="lab">Частиц</span>
+        <div class="seg" id="segRes" role="group" aria-label="Число частиц"></div>
+      </div>
+      <div class="field"><span class="lab">Скорость</span>
+        <div class="seg" id="segSpd" role="group" aria-label="Скорость"><button type="button" data-r="5" aria-pressed="false">0,5×</button><button type="button" data-r="10" aria-pressed="true">1×</button><button type="button" data-r="20" aria-pressed="false">2×</button><button type="button" data-r="max" aria-pressed="false">Макс</button></div>
+      </div>
+      <div class="field"><label class="lab" for="slab">Срез<output id="slabV" for="slab"></output></label><input type="range" id="slab" min="0.05" max="1" step="0.01" value="0.3"></div>
+      <div class="field"><label class="lab" for="psize">Размер точек</label><input type="range" id="psize" min="0.5" max="2.5" step="0.05" value="1"></div>
+      <div class="field"><label class="lab" for="bright">Яркость</label><input type="range" id="bright" min="0.4" max="2.5" step="0.05" value="1"></div>
+      <div class="field" id="bloomRow"><label class="lab" for="bloom">Свечение</label><input type="range" id="bloom" min="0" max="1.6" step="0.05" value="0.6"></div>
+      <div class="field"><span class="lab">Камера</span><label class="chk"><input type="checkbox" id="auto" checked> Медленное вращение</label></div>
+      <div class="seedrow"><label class="lab" for="seed">Зерно</label>
+        <div class="ctl"><input type="number" id="seed" value="2026" min="0" step="1"><button class="btn" id="newU" type="button">Новая Вселенная</button></div>
+      </div>
+    </section>
+
+    <section aria-labelledby="h-pk" class="chartbox">
+      <h2 id="h-pk">Спектр мощности P(k)</h2>
+      <div class="seg tabs" id="segChart" role="group" aria-label="Что показывать на графике">
+        <button type="button" data-c="pk" aria-pressed="true">P(k)</button>
+        <button type="button" data-c="bao" aria-pressed="false" disabled title="Нужен куб 600 Мпк/h: звуковой горизонт около 100 Мпк/h не помещается в малый куб">Колебания БАО</button>
+        <button type="button" data-c="xi" aria-pressed="false" disabled title="Нужен куб 600 Мпк/h">ξ(r)</button>
+      </div>
+      <canvas id="chart" role="img" aria-label="График результатов расчёта"></canvas>
+      <div class="legend" id="leg-pk">
+        <span><svg viewBox="0 0 22 8" aria-hidden="true"><line x1="0" y1="4" x2="22" y2="4" stroke="#6fd3e8" stroke-width="2"/></svg>линейная теория сейчас</span>
+        <span><svg viewBox="0 0 22 8" aria-hidden="true"><line x1="0" y1="4" x2="22" y2="4" stroke="#4a5f93" stroke-width="1.5" stroke-dasharray="3 3"/></svg>линейная теория, z = 0</span>
+        <span><svg viewBox="0 0 22 8" aria-hidden="true"><line x1="0" y1="4" x2="22" y2="4" stroke="#ffb061" stroke-width="1.5"/><circle cx="11" cy="4" r="2.6" fill="#ffb061"/></svg>измерено в расчёте</span>
+        <span><svg viewBox="0 0 22 8" aria-hidden="true"><line x1="0" y1="4" x2="22" y2="4" stroke="#7a86a6" stroke-width="1.5" stroke-dasharray="1 3"/></svg>дискретный шум V/N</span>
+      </div>
+      <div class="legend" id="leg-bao" hidden>
+        <span><svg viewBox="0 0 22 8" aria-hidden="true"><line x1="0" y1="4" x2="22" y2="4" stroke="#6fd3e8" stroke-width="2"/></svg>теория (Эйзенштейн–Ху)</span>
+        <span><svg viewBox="0 0 22 8" aria-hidden="true"><line x1="0" y1="4" x2="22" y2="4" stroke="#ffb061" stroke-width="1.5"/><circle cx="11" cy="4" r="2.6" fill="#ffb061"/></svg>измерено в расчёте</span>
+      </div>
+      <div class="legend" id="leg-xi" hidden>
+        <span><svg viewBox="0 0 22 8" aria-hidden="true"><line x1="0" y1="4" x2="22" y2="4" stroke="#ffb061" stroke-width="2"/></svg>расчёт сейчас</span>
+        <span><svg viewBox="0 0 22 8" aria-hidden="true"><line x1="0" y1="4" x2="22" y2="4" stroke="#6fd3e8" stroke-width="1.5" stroke-dasharray="4 3"/></svg>поле со старта, линейный рост</span>
+        <span><svg viewBox="0 0 22 8" aria-hidden="true"><line x1="0" y1="4" x2="22" y2="4" stroke="#7a86a6" stroke-width="1.5" stroke-dasharray="1 3"/></svg>звуковой горизонт r_s</span>
+      </div>
+      <div class="stats">
+        <div><span>Шаг по ln a</span><b id="stepV">0 / 156</b></div>
+        <div><span>Рост длинных мод</span><b id="growV">100,0 %</b></div>
+      </div>
+      <p class="note" id="chartNote"></p>
+    </section>
+
+    <section aria-labelledby="h-par">
+      <h2 id="h-par">Параметры расчёта</h2>
+      <dl>
+        <div><dt>Ωm</dt><dd>0,315</dd></div>
+        <div><dt>ΩΛ</dt><dd>0,685</dd></div>
+        <div><dt>h</dt><dd>0,674</dd></div>
+        <div><dt>σ₈</dt><dd>0,811</dd></div>
+        <div><dt>nₛ</dt><dd>0,965</dd></div>
+        <div><dt>Ωb</dt><dd>0,0493</dd></div>
+        <div><dt>Куб</dt><dd id="pL">100 Мпк/h</dd></div>
+        <div><dt>Старт</dt><dd>z = 49</dd></div>
+        <div><dt>Частиц</dt><dd id="pN">—</dd></div>
+        <div><dt>Ячейка</dt><dd id="pC">—</dd></div>
+      </dl>
+    </section>
+
+    <section>
+      <details>
+        <summary>Что учтено и что нет</summary>
+        <ul>
+          <li><b>Начальные условия.</b> Гауссово случайное поле со спектром Эйзенштейна–Ху вместе с барионными акустическими осцилляциями (БАО), нормировка по σ₈, смещения частиц по Зельдовичу при z = 49.</li>
+          <li><b>Гравитация.</b> Уравнение Пуассона на сетке через быстрое преобразование Фурье (метод Particle-Mesh, окно CIC).</li>
+          <li><b>Расширение.</b> Плоская ΛCDM: уравнение Фридмана с тёмной энергией как космологической постоянной. Шаги по ln a, схема kick-drift-kick.</li>
+          <li><b>Материя.</b> Тёмная и обычная материя идут одной бесстолкновительной компонентой, влияние барионов заложено в форму спектра.</li>
+          <li><b>Не учтено.</b> Газодинамика, звёзды, нейтрино, излучение.</li>
+          <li><b>Куб 600 Мпк/h.</b> Нужен, чтобы в расчёт поместился звуковой горизонт r_s ≈ 102 Мпк/h. Амплитуды мод заданы точно, случайны только фазы, поэтому колебания не тонут в шуме выборки. Ячейка здесь 9,4 Мпк/h: крупные структуры верны, скопления не разрешены, а рост на k > 0,1 h/Мпк занижен на 10–20 %.</li>
+          <li><b>Видеокарта.</b> В режиме WebGPU БПФ, осаждение плотности, силы, шаг интегрирования и даже начальные условия считаются шейдерами в 32-битных числах. На одинаковом шуме спектр мощности совпадает с процессорной версией в пределах 1 %, положения частиц в пределах сотых долей ячейки. Частицы остаются в памяти видеокарты и рисуются оттуда же.</li>
+          <li><b>Разрешение.</b> До 262 144 частиц, ячейка около 1,6 Мпк/h в кубе 100 Мпк/h. Настоящие расчёты берут миллиарды частиц: нити и пустоты здесь получаются, но мелкие гало сглажены.</li>
+        </ul>
+      </details>
+    </section>
+  </aside>
+</div>
+
+<script>
+/* Particle-Mesh N-body для плоской ΛCDM.
+   Единицы: длина — Мпк/h, время — 1/H0 (H0 = 1), положения частиц — в ячейках сетки.
+   Переменные: x (comoving), p = a² dx/dt; шаг по s = ln a, схема kick-drift-kick. */
+(function (root) {
+  'use strict';
+
+  const C = { Om: 0.315, OL: 0.685, h: 0.674, ns: 0.965, s8: 0.811, Ob: 0.0493, L: 100, zi: 49 };
+  const TWO_PI = Math.PI * 2;
+  const Ef = (a) => Math.sqrt(C.Om / (a * a * a) + C.OL * 1);
+
+  function simpson(f, a, b, n) {
+    if (n % 2) n++;
+    const h = (b - a) / n;
+    let s = f(a) + f(b);
+    for (let i = 1; i < n; i++) s += f(a + i * h) * (i % 2 ? 4 : 2);
+    return (s * h) / 3;
+  }
+
+  /* Линейный фактор роста D(a) = E(a) ∫ da' / (a' E(a'))³, нормирован на D(1) = 1 */
+  const gInt = (a) => Math.pow(a, 1.5) / Math.pow(C.Om + C.OL * a * a * a, 1.5);
+  const Dun = (a) => Ef(a) * simpson(gInt, 0, a, 400);
+  const D1 = Dun(1);
+  const Dg = (a) => Dun(a) / D1;
+  const fg = (a) => {
+    const e = 1e-3;
+    return (Math.log(Dg(a * Math.exp(e))) - Math.log(Dg(a * Math.exp(-e)))) / (2 * e);
+  };
+  const tint = (a) => simpson((x) => Math.sqrt(x) / Math.sqrt(C.Om + C.OL * x * x * x), 0, a, 400);
+  const ageGyr = (a) => (tint(a) * 9.778) / C.h;
+
+  /* Передаточная функция без осцилляций (EH98, формулы 29-31), k в h/Мпк: гладкий опорный спектр */
+  function Tnw(k) {
+    const h = C.h, om = C.Om * h * h, ob = C.Ob * h * h, fb = C.Ob / C.Om;
+    const th = 2.7255 / 2.7;
+    const s = (44.5 * Math.log(9.83 / om)) / Math.sqrt(1 + 10 * Math.pow(ob, 0.75));
+    const ag = 1 - 0.328 * Math.log(431 * om) * fb + 0.38 * Math.log(22.3 * om) * fb * fb;
+    const G = C.Om * h * (ag + (1 - ag) / (1 + Math.pow(0.43 * k * h * s, 4)));
+    const q = (k * th * th) / G;
+    const L0 = Math.log(2 * Math.E + 1.8 * q);
+    const C0 = 14.2 + 731 / (1 + 62.5 * q);
+    return L0 / (L0 + C0 * q * q);
+  }
+
+  /* Полная передаточная функция с барионными акустическими осцилляциями (Eisenstein & Hu 1998, разд. 3) */
+  const EH = (function () {
+    const h = C.h, om = C.Om * h * h, ob = C.Ob * h * h, fb = C.Ob / C.Om, fc = 1 - fb, th = 2.7255 / 2.7;
+    const zeq = 2.5e4 * om * Math.pow(th, -4), keq = 7.46e-2 * om * Math.pow(th, -2);
+    const b1 = 0.313 * Math.pow(om, -0.419) * (1 + 0.607 * Math.pow(om, 0.674)), b2 = 0.238 * Math.pow(om, 0.223);
+    const zd = ((1291 * Math.pow(om, 0.251)) / (1 + 0.659 * Math.pow(om, 0.828))) * (1 + b1 * Math.pow(ob, b2));
+    const R = (z) => 31.5 * ob * Math.pow(th, -4) * (1000 / z);
+    const Req = R(zeq), Rd = R(zd);
+    const s = ((2 / (3 * keq)) * Math.sqrt(6 / Req)) * Math.log((Math.sqrt(1 + Rd) + Math.sqrt(Rd + Req)) / (1 + Math.sqrt(Req)));
+    const kSilk = 1.6 * Math.pow(ob, 0.52) * Math.pow(om, 0.73) * (1 + Math.pow(10.4 * om, -0.95));
+    const a1 = Math.pow(46.9 * om, 0.67) * (1 + Math.pow(32.1 * om, -0.532));
+    const a2 = Math.pow(12.0 * om, 0.424) * (1 + Math.pow(45.0 * om, -0.582));
+    const alphaC = Math.pow(a1, -fb) * Math.pow(a2, -fb * fb * fb);
+    const bb1 = 0.944 / (1 + Math.pow(458 * om, -0.708)), bb2 = Math.pow(0.395 * om, -0.0266);
+    const betaC = 1 / (1 + bb1 * (Math.pow(fc, bb2) - 1));
+    const y = (1 + zeq) / (1 + zd), sq = Math.sqrt(1 + y);
+    const Gy = y * (-6 * sq + (2 + 3 * y) * Math.log((sq + 1) / (sq - 1)));
+    const alphaB = 2.07 * keq * s * Math.pow(1 + Rd, -0.75) * Gy;
+    const betaNode = 8.41 * Math.pow(om, 0.435);
+    const betaB = 0.5 + fb + (3 - 2 * fb) * Math.sqrt(Math.pow(17.2 * om, 2) + 1);
+    function Tt(k, al, be) {
+      const q = k / (13.41 * keq), L0 = Math.log(Math.E + 1.8 * be * q), C0 = 14.2 / al + 386 / (1 + 69.9 * Math.pow(q, 1.08));
+      return L0 / (L0 + C0 * q * q);
+    }
+    function T(kh) {
+      const k = kh * h, ks = k * s;
+      const f = 1 / (1 + Math.pow(ks / 5.4, 4));
+      const Tc = f * Tt(k, 1, betaC) + (1 - f) * Tt(k, alphaC, betaC);
+      const sT = s / Math.cbrt(1 + Math.pow(betaNode / ks, 3)), x = k * sT, j0 = Math.sin(x) / x;
+      const Tb = (Tt(k, 1, 1) / (1 + Math.pow(ks / 5.2, 2)) + (alphaB / (1 + Math.pow(betaB / ks, 3))) * Math.exp(-Math.pow(k / kSilk, 1.4))) * j0;
+      return fb * Tb + fc * Tc;
+    }
+    return { T, s, sh: s * h };
+  })();
+
+  function sigma8norm(Tf) {
+    const R = 8, n = 4000, lo = Math.log(1e-4), hi = Math.log(60);
+    let s = 0;
+    for (let i = 0; i <= n; i++) {
+      const k = Math.exp(lo + ((hi - lo) * i) / n), x = k * R;
+      const W = (3 * (Math.sin(x) - x * Math.cos(x))) / (x * x * x), t = Tf(k);
+      s += (i === 0 || i === n ? 0.5 : 1) * k * k * k * Math.pow(k, C.ns) * t * t * W * W;
+    }
+    s *= (hi - lo) / n / (2 * Math.PI * Math.PI);
+    return (C.s8 * C.s8) / s;
+  }
+  const Afull = sigma8norm(EH.T);
+  const P0 = (k) => Afull * Math.pow(k, C.ns) * Math.pow(EH.T(k), 2);
+  /* гладкий опорный спектр: форма из EH-«без осцилляций», масштаб подогнан по среднему отношению на 0,03–0,3 h/Мпк */
+  let Anw = sigma8norm(Tnw);
+  (function () {
+    let sum = 0, n = 0;
+    for (let i = 0; i <= 200; i++) {
+      const k = Math.exp(Math.log(0.03) + (Math.log(10) * i) / 200);
+      sum += P0(k) / (Anw * Math.pow(k, C.ns) * Math.pow(Tnw(k), 2)); n++;
+    }
+    Anw *= sum / n;
+  })();
+  const Pnw = (k) => Anw * Math.pow(k, C.ns) * Math.pow(Tnw(k), 2);
+
+  /* линейная корреляционная функция ξ(r) при z=0 с гауссовым окном exp(-k²σ²) по мощности (как в расчёте) */
+  function linXi(rs, sig) {
+    const kcut = 1.5, n = 3000, dk = kcut / n, pk = new Float64Array(n + 1);
+    for (let i = 1; i <= n; i++) { const k = i * dk; pk[i] = P0(k) * k * k * Math.exp(-k * k * sig * sig); }
+    return rs.map((r) => {
+      let sum = 0;
+      for (let i = 1; i <= n; i++) { const x = i * dk * r; sum += pk[i] * (Math.sin(x) / x); }
+      return (sum * dk) / (2 * Math.PI * Math.PI);
+    });
+  }
+
+  function rng(seed) {
+    let a = seed >>> 0;
+    return () => {
+      a |= 0; a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function gauss(r) {
+    let u = 0;
+    while (u === 0) u = r();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(TWO_PI * r());
+  }
+
+  function build(M, seed, opts) {
+    opts = opts || {};
+    const M3 = M * M * M, L = opts.L || C.L, fixed = !!opts.fixed, cell = L / M, V = L * L * L, Np = M3, half = M >> 1;
+    const ai = 1 / (1 + C.zi), s0 = Math.log(ai);
+    const nSteps = Math.round(-s0 / (opts.dlna || 0.025)), DS = -s0 / nSteps;
+
+    /* ---- БПФ ---- */
+    const bits = Math.round(Math.log2(M));
+    const rev = new Uint16Array(M);
+    for (let i = 0; i < M; i++) {
+      let r = 0;
+      for (let b = 0; b < bits; b++) if ((i >> b) & 1) r |= 1 << (bits - 1 - b);
+      rev[i] = r;
+    }
+    const cosT = new Float64Array(half), sinT = new Float64Array(half);
+    for (let t = 0; t < half; t++) { cosT[t] = Math.cos((TWO_PI * t) / M); sinT[t] = Math.sin((TWO_PI * t) / M); }
+    const tr = new Float64Array(M), ti = new Float64Array(M);
+    function fft1(re, im, off, stride, inv) {
+      for (let i = 0; i < M; i++) { const j = rev[i], q = off + i * stride; tr[j] = re[q]; ti[j] = im[q]; }
+      for (let len = 2; len <= M; len <<= 1) {
+        const hl = len >> 1, st = M / len;
+        for (let i = 0; i < M; i += len) {
+          for (let j = 0, t = 0; j < hl; j++, t += st) {
+            const wr = cosT[t], wi = inv ? sinT[t] : -sinT[t];
+            const a = i + j, b = a + hl;
+            const xr = tr[b] * wr - ti[b] * wi, xi = tr[b] * wi + ti[b] * wr;
+            tr[b] = tr[a] - xr; ti[b] = ti[a] - xi; tr[a] += xr; ti[a] += xi;
+          }
+        }
+      }
+      const sc = inv ? 1 / M : 1;
+      for (let i = 0; i < M; i++) { const q = off + i * stride; re[q] = tr[i] * sc; im[q] = ti[i] * sc; }
+    }
+    function fft3(re, im, inv) {
+      for (let ix = 0; ix < M; ix++) for (let iy = 0; iy < M; iy++) fft1(re, im, (ix * M + iy) * M, 1, inv);
+      for (let ix = 0; ix < M; ix++) for (let iz = 0; iz < M; iz++) fft1(re, im, ix * M * M + iz, M, inv);
+      for (let iy = 0; iy < M; iy++) for (let iz = 0; iz < M; iz++) fft1(re, im, iy * M + iz, M * M, inv);
+    }
+
+    /* ---- таблицы волновых чисел ---- */
+    const nint = new Int16Array(M), kk = new Float64Array(M), kd = new Float64Array(M), sinc = new Float64Array(M);
+    for (let i = 0; i < M; i++) {
+      const n = i <= half ? i : i - M;
+      nint[i] = n; kk[i] = (TWO_PI * n) / L; kd[i] = i === half ? 0 : kk[i];
+      const x = (Math.PI * n) / M; sinc[i] = n === 0 ? 1 : Math.sin(x) / x;
+    }
+    const lin = fixed, nb = lin ? half : 12, lnr = Math.log(half);
+    const invk2 = new Float32Array(M3), filt = new Float32Array(M3), smooth = new Float32Array(M3), kmag = new Float32Array(M3), w2inv = new Float32Array(M3);
+    const bin = new Int8Array(M3);
+    {
+      let idx = 0;
+      for (let ix = 0; ix < M; ix++) for (let iy = 0; iy < M; iy++) for (let iz = 0; iz < M; iz++) {
+        const k2 = kk[ix] * kk[ix] + kk[iy] * kk[iy] + kk[iz] * kk[iz];
+        invk2[idx] = k2 > 0 ? 1 / k2 : 0;
+        smooth[idx] = Math.exp(-0.5 * k2 * cell * cell);
+        kmag[idx] = Math.sqrt(k2);
+        const w = sinc[ix] * sinc[iy] * sinc[iz];
+        w2inv[idx] = 1 / (w * w * w * w);
+        filt[idx] = opts.nofilt ? 1 : Math.pow(w2inv[idx], opts.g === undefined ? 1 : opts.g) * Math.exp(-k2 * cell * cell * (opts.beta === undefined ? 1 / 12 : opts.beta)); /* деконволюция CIC (депозит+интерполяция), фильтр на масштабе сетки */
+        const n2 = nint[ix] * nint[ix] + nint[iy] * nint[iy] + nint[iz] * nint[iz];
+        if (n2 === 0) bin[idx] = -1;
+        else {
+          const na = Math.sqrt(n2);
+          if (na > half + 1e-9) bin[idx] = -1;
+          else { let b = lin ? Math.round(na) - 1 : Math.floor((Math.log(na) / lnr) * nb); if (b >= nb) b = nb - 1; if (b < 0) b = 0; bin[idx] = b; }
+        }
+        idx++;
+      }
+    }
+
+    const dRe = new Float64Array(M3), dIm = new Float64Array(M3);
+    const aRe = new Float64Array(M3), aIm = new Float64Array(M3), bRe = new Float64Array(M3), bIm = new Float64Array(M3);
+    const pos = new Float32Array(3 * Np), mom = new Float32Array(3 * Np), acc = new Float32Array(3 * Np), rho = new Float32Array(Np);
+
+    const S = {
+      M, Np, cell, L, fixed, lin, nSteps, s0, s: s0, a: ai, n: 0, done: false, pos, rho,
+      pkK: new Float64Array(nb), pkP: new Float64Array(nb), pkN: new Int32Array(nb), nb,
+      shot: V / Np, kNyq: (Math.PI * M) / L, kf: TWO_PI / L,
+    };
+
+    /* ---- зонд роста: амплитуды длинных мод (n=1,2 вдоль осей) прямо по частицам, без сетки ---- */
+    const T = 1 << 16, ct = [null, new Float32Array(T), new Float32Array(T)], st = [null, new Float32Array(T), new Float32Array(T)];
+    for (let n = 1; n <= 2; n++) for (let j = 0; j < T; j++) { const th = (TWO_PI * n * (j + 0.5)) / T; ct[n][j] = Math.cos(th); st[n][j] = Math.sin(th); }
+    function probe() {
+      const acc6 = new Float64Array(12), sc = T / M;
+      for (let p = 0, j = 0; p < Np; p++, j += 3) {
+        for (let c = 0; c < 3; c++) {
+          const q = (pos[j + c] * sc) | 0;
+          acc6[c * 4] += ct[1][q]; acc6[c * 4 + 1] += st[1][q]; acc6[c * 4 + 2] += ct[2][q]; acc6[c * 4 + 3] += st[2][q];
+        }
+      }
+      let pw = 0;
+      for (let i = 0; i < 12; i += 2) pw += acc6[i] * acc6[i] + acc6[i + 1] * acc6[i + 1];
+      return pw / (Np * Np);
+    }
+
+    /* ---- CIC: осаждение плотности + БПФ ---- */
+    function deposit() {
+      dRe.fill(0); dIm.fill(0);
+      for (let p = 0, j = 0; p < Np; p++, j += 3) {
+        const x = pos[j], y = pos[j + 1], z = pos[j + 2];
+        const ix = x | 0, iy = y | 0, iz = z | 0;
+        const fx = x - ix, fy = y - iy, fz = z - iz, gx = 1 - fx, gy = 1 - fy, gz = 1 - fz;
+        const ix1 = ix + 1 === M ? 0 : ix + 1, iy1 = iy + 1 === M ? 0 : iy + 1, iz1 = iz + 1 === M ? 0 : iz + 1;
+        const a00 = (ix * M + iy) * M, a01 = (ix * M + iy1) * M, a10 = (ix1 * M + iy) * M, a11 = (ix1 * M + iy1) * M;
+        dRe[a00 + iz] += gx * gy * gz; dRe[a00 + iz1] += gx * gy * fz;
+        dRe[a01 + iz] += gx * fy * gz; dRe[a01 + iz1] += gx * fy * fz;
+        dRe[a10 + iz] += fx * gy * gz; dRe[a10 + iz1] += fx * gy * fz;
+        dRe[a11 + iz] += fx * fy * gz; dRe[a11 + iz1] += fx * fy * fz;
+      }
+      const inv = M3 / Np;
+      for (let i = 0; i < M3; i++) dRe[i] = dRe[i] * inv - 1;
+      fft3(dRe, dIm, false);
+    }
+
+    /* Спектр мощности из δ(k): сумма по оболочкам, деконволюция окна CIC */
+    function measure() {
+      const sP = S.pkP, sK = S.pkK, cn = S.pkN;
+      sP.fill(0); sK.fill(0); cn.fill(0);
+      for (let i = 0; i < M3; i++) {
+        const b = bin[i];
+        if (b < 0) continue;
+        const pw = (dRe[i] * dRe[i] + dIm[i] * dIm[i]) * w2inv[i];
+        sP[b] += pw; sK[b] += kmag[i]; cn[b]++;
+      }
+      const norm = V / (M3 * M3);
+      for (let b = 0; b < nb; b++) if (cn[b]) { sP[b] = (sP[b] / cn[b]) * norm; sK[b] /= cn[b]; }
+    }
+
+    /* Поля i·k·δ/k²: (Fx,Fy) и (Fz, сглаженная δ) упакованы в две комплексные БПФ */
+    function computeFields(useFilt) {
+      let idx = 0;
+      for (let ix = 0; ix < M; ix++) for (let iy = 0; iy < M; iy++) for (let iz = 0; iz < M; iz++) {
+        const g = useFilt ? invk2[idx] * filt[idx] : invk2[idx], Dr = dRe[idx], Di = dIm[idx], Gr = Dr * g, Gi = Di * g;
+        const kx = kd[ix], ky = kd[iy], kz = kd[iz], sm = smooth[idx];
+        aRe[idx] = -kx * Gi - ky * Gr;
+        aIm[idx] = kx * Gr - ky * Gi;
+        bRe[idx] = -kz * Gi - Di * sm;
+        bIm[idx] = kz * Gr + Dr * sm;
+        idx++;
+      }
+      fft3(aRe, aIm, true);
+      fft3(bRe, bIm, true);
+    }
+
+    function gather() {
+      for (let p = 0, j = 0; p < Np; p++, j += 3) {
+        const x = pos[j], y = pos[j + 1], z = pos[j + 2];
+        const ix = x | 0, iy = y | 0, iz = z | 0;
+        const fx = x - ix, fy = y - iy, fz = z - iz, gx = 1 - fx, gy = 1 - fy, gz = 1 - fz;
+        const ix1 = ix + 1 === M ? 0 : ix + 1, iy1 = iy + 1 === M ? 0 : iy + 1, iz1 = iz + 1 === M ? 0 : iz + 1;
+        const a00 = (ix * M + iy) * M, a01 = (ix * M + iy1) * M, a10 = (ix1 * M + iy) * M, a11 = (ix1 * M + iy1) * M;
+        const i0 = a00 + iz, i1 = a00 + iz1, i2 = a01 + iz, i3 = a01 + iz1, i4 = a10 + iz, i5 = a10 + iz1, i6 = a11 + iz, i7 = a11 + iz1;
+        const w0 = gx * gy * gz, w1 = gx * gy * fz, w2 = gx * fy * gz, w3 = gx * fy * fz;
+        const w4 = fx * gy * gz, w5 = fx * gy * fz, w6 = fx * fy * gz, w7 = fx * fy * fz;
+        acc[j] = aRe[i0] * w0 + aRe[i1] * w1 + aRe[i2] * w2 + aRe[i3] * w3 + aRe[i4] * w4 + aRe[i5] * w5 + aRe[i6] * w6 + aRe[i7] * w7;
+        acc[j + 1] = aIm[i0] * w0 + aIm[i1] * w1 + aIm[i2] * w2 + aIm[i3] * w3 + aIm[i4] * w4 + aIm[i5] * w5 + aIm[i6] * w6 + aIm[i7] * w7;
+        acc[j + 2] = bRe[i0] * w0 + bRe[i1] * w1 + bRe[i2] * w2 + bRe[i3] * w3 + bRe[i4] * w4 + bRe[i5] * w5 + bRe[i6] * w6 + bRe[i7] * w7;
+        rho[p] = 1 + bIm[i0] * w0 + bIm[i1] * w1 + bIm[i2] * w2 + bIm[i3] * w3 + bIm[i4] * w4 + bIm[i5] * w5 + bIm[i6] * w6 + bIm[i7] * w7;
+      }
+    }
+
+    /* ---- начальные условия: гауссово поле + приближение Зельдовича ---- */
+    {
+      const rand = rng(seed);
+      for (let i = 0; i < M3; i++) dRe[i] = gauss(rand);
+      dIm.fill(0);
+      fft3(dRe, dIm, false);
+      for (let i = 0; i < M3; i++) {
+        const k = kmag[i];
+        if (k === 0) { dRe[i] = 0; dIm[i] = 0; continue; }
+        let A;
+        if (fixed) { const m = Math.hypot(dRe[i], dIm[i]) || 1; A = Math.sqrt((P0(k) * M3 * M3) / V) / m; } /* фиксированные амплитуды, случайны только фазы */
+        else A = Math.sqrt((P0(k) * M3) / V);
+        dRe[i] *= A; dIm[i] *= A;
+      }
+      computeFields(false); /* aRe,aIm,bRe = Ψx,Ψy,Ψz (Мпк/h) */
+      const di = Dg(ai), fi = fg(ai), Ei = Ef(ai), pf = ai * ai * Ei * fi * di;
+      let idx = 0;
+      for (let ix = 0; ix < M; ix++) for (let iy = 0; iy < M; iy++) for (let iz = 0; iz < M; iz++) {
+        const j = 3 * idx, q = [ix, iy, iz], ps = [aRe[idx], aIm[idx], bRe[idx]];
+        for (let c = 0; c < 3; c++) {
+          let x = q[c] + (di * ps[c]) / cell;
+          x -= M * Math.floor(x / M);
+          let f = Math.fround(x); if (f >= M) f = 0;
+          pos[j + c] = f;
+          mom[j + c] = (pf * ps[c]) / cell;
+        }
+        idx++;
+      }
+      deposit(); measure(); computeFields(true); gather();
+      S.probe0 = probe(); S.probe = S.probe0;
+    }
+
+    /* ---- один шаг kick-drift-kick по ln a ---- */
+    S.step = function () {
+      if (S.n >= nSteps) { S.done = true; return false; }
+      const s = S.s, ds = DS;
+      const a1 = Math.exp(s + 0.25 * ds), am = Math.exp(s + 0.5 * ds), a2 = Math.exp(s + 0.75 * ds);
+      const k1 = ((1.5 * C.Om) / (a1 * Ef(a1) * cell)) * 0.5 * ds;
+      const k2 = ((1.5 * C.Om) / (a2 * Ef(a2) * cell)) * 0.5 * ds;
+      const dr = ds / (am * am * Ef(am));
+      const n3 = 3 * Np;
+      for (let i = 0; i < n3; i++) mom[i] += acc[i] * k1;
+      for (let i = 0; i < n3; i++) {
+        let x = pos[i] + mom[i] * dr;
+        x -= M * Math.floor(x / M);
+        let f = Math.fround(x); if (f >= M) f = 0;
+        pos[i] = f;
+      }
+      deposit(); measure(); computeFields(true); gather();
+      for (let i = 0; i < n3; i++) mom[i] += acc[i] * k2;
+      S.probe = probe();
+      S.n++;
+      S.s = s + ds; S.a = Math.exp(S.s);
+      if (S.n >= nSteps) { S.s = 0; S.a = 1; S.done = true; }
+      return true;
+    };
+    const nR = Math.ceil(260 / cell) * 2 + 2, sigS = 0.7 * cell;
+    S.sigS = sigS;
+    S.xiR = new Float64Array(nR); S.xiV = new Float64Array(nR); S.xiN = new Int32Array(nR); S.nR = nR;
+    S.xi = function () { /* ξ(r) из измеренной мощности: обратное БПФ от сглаженного |δ(k)|² */
+      for (let i = 0; i < M3; i++) { const kq = kmag[i]; aRe[i] = (dRe[i] * dRe[i] + dIm[i] * dIm[i]) * w2inv[i] * Math.exp(-kq * kq * sigS * sigS); aIm[i] = 0; }
+      fft3(aRe, aIm, true);
+      S.xiR.fill(0); S.xiV.fill(0); S.xiN.fill(0);
+      let idx = 0;
+      for (let ix = 0; ix < M; ix++) {
+        const dx = Math.min(ix, M - ix);
+        for (let iy = 0; iy < M; iy++) {
+          const dy = Math.min(iy, M - iy);
+          for (let iz = 0; iz < M; iz++, idx++) {
+            const dz = Math.min(iz, M - iz), rc = Math.sqrt(dx * dx + dy * dy + dz * dz), b = Math.round(rc * 2);
+            if (b < 2 || b >= nR) continue;
+            S.xiR[b] += rc * cell; S.xiV[b] += aRe[idx] / M3; S.xiN[b]++;
+          }
+        }
+      }
+      for (let b = 0; b < nR; b++) if (S.xiN[b]) { S.xiR[b] /= S.xiN[b]; S.xiV[b] /= S.xiN[b]; }
+    };
+    S.xi(); S.xi0 = Float64Array.from(S.xiV); /* поле при старте: эталон «линейного роста» */
+    /* БАО: отношение измеренного спектра к гладкому, после вычитания плавной составляющей (полином 3-й степени по k) */
+    function polyfit(x, y, deg) {
+      const m = deg + 1, A = [], v = new Array(m).fill(0);
+      for (let i = 0; i < m; i++) A.push(new Array(m).fill(0));
+      for (let j = 0; j < x.length; j++) for (let i = 0; i < m; i++) { v[i] += y[j] * Math.pow(x[j], i); for (let l = 0; l < m; l++) A[i][l] += Math.pow(x[j], i + l); }
+      for (let i = 0; i < m; i++) {
+        let piv = i; for (let r = i + 1; r < m; r++) if (Math.abs(A[r][i]) > Math.abs(A[piv][i])) piv = r;
+        [A[i], A[piv]] = [A[piv], A[i]]; [v[i], v[piv]] = [v[piv], v[i]];
+        for (let r = i + 1; r < m; r++) { const f = A[r][i] / A[i][i]; for (let l = i; l < m; l++) A[r][l] -= f * A[i][l]; v[r] -= f * v[i]; }
+      }
+      const c = new Array(m).fill(0);
+      for (let i = m - 1; i >= 0; i--) { let t = v[i]; for (let l = i + 1; l < m; l++) t -= A[i][l] * c[l]; c[i] = t / A[i][i]; }
+      return (xx) => { let r = 0; for (let i = 0; i < m; i++) r += c[i] * Math.pow(xx, i); return r; };
+    }
+    S.bao = function (kmax) {
+      const D2 = Dg(S.a) * Dg(S.a), xs = [], ym = [], yt = [];
+      for (let b = 0; b < S.nb; b++) {
+        if (!S.pkN[b]) continue;
+        const k = S.pkK[b]; if (k < 1.5 * S.kf || k > kmax) continue;
+        xs.push(k / kmax); ym.push(Math.log(S.pkP[b] / (D2 * Pnw(k)))); yt.push(Math.log(P0(k) / Pnw(k)));
+      }
+      const fm = polyfit(xs, ym, 3), ft = polyfit(xs, yt, 3);
+      const meas = xs.map((x, i) => ({ k: x * kmax, r: Math.exp(ym[i] - fm(x)) }));
+      const th = [];
+      for (let i = 0; i <= 120; i++) { const k = 0.02 + ((kmax - 0.02) * i) / 120; th.push({ k, r: Math.exp(Math.log(P0(k) / Pnw(k)) - ft(k / kmax)) }); }
+      return { meas, th };
+    };
+    S.growth = function () {
+      const r = Dg(S.a) / Dg(ai);
+      return { meas: S.probe / S.probe0, theory: r * r };
+    };
+    return S;
+  }
+
+  root.Cosmo = { C, Ef, Dg, fg, ageGyr, P0, Pnw, linXi, rs: EH.sh, rsMpc: EH.s, build, rng, gauss };
+  if (typeof module !== 'undefined') module.exports = root.Cosmo;
+})(typeof self !== 'undefined' ? self : globalThis);
 
 </script>
-</body>
-</html>
+<script>
+/* Particle-Mesh N-body на WebGPU: те же уравнения, что в core.js, но все вычисления идут на видеокарте.
+   БПФ, осаждение плотности (CIC), уравнение Пуассона, силы, интегратор и начальные условия — WGSL-шейдеры.
+   Частицы остаются в памяти видеокарты, рендер читает их напрямую. На процессор уходят только спектры по оболочкам. */
+(function (root) {
+  'use strict';
+  const K = root.Cosmo, C = K.C;
+  const TWO_PI = Math.PI * 2;
+  const WG = 256;
+
+  const COMMON = /* wgsl */ `
+struct Params {
+  n: u32, nn: u32, n3: u32, half: u32,
+  L: f32, cell: f32, dr: f32, kfac: f32,
+  icAmp: f32, di: f32, pf: f32, beta: f32,
+  sub: u32, nbins: u32, tabN: u32, fixedIC: u32,
+  lk0: f32, lk1: f32, useFilt: u32, seed: u32,
+  np: u32, p1: u32, p2: u32, p3: u32,
+};
+@group(0) @binding(0) var<uniform> P: Params;
+const TWO_PI: f32 = 6.283185307179586;
+fn tid(wid: vec3<u32>, nwg: vec3<u32>, lid: u32) -> u32 { return (wid.y * nwg.x + wid.x) * 256u + lid; }
+fn nidx(i: u32) -> i32 { return select(i32(i) - i32(P.n), i32(i), i <= P.half); }
+fn dec(idx: u32) -> vec3<u32> { return vec3<u32>(idx / P.nn, (idx / P.n) % P.n, idx % P.n); }
+fn sincn(n: i32) -> f32 { if (n == 0) { return 1.0; } let x = 3.141592653589793 * f32(n) / f32(P.n); return sin(x) / x; }
+fn cidx(a: u32, b: u32, c: u32) -> u32 { return (a * P.n + b) * P.n + c; }
+fn pcg(v: u32) -> u32 { let s = v * 747796405u + 2891336453u; let w = ((s >> ((s >> 28u) + 4u)) ^ s) * 277803737u; return (w >> 22u) ^ w; }
+`;
+
+  const SH = {};
+  SH.noise = COMMON + /* wgsl */ `
+@group(0) @binding(1) var<storage, read_write> D: array<vec2<f32>>;
+@compute @workgroup_size(256)
+fn main(@builtin(workgroup_id) wid: vec3<u32>, @builtin(num_workgroups) nwg: vec3<u32>, @builtin(local_invocation_index) lid: u32) {
+  let idx = tid(wid, nwg, lid); if (idx >= P.n3) { return; }
+  let a = pcg(idx + pcg(P.seed));
+  let b = pcg(a ^ 0x9e3779b9u);
+  let u1 = (f32(a >> 8u) + 0.5) / 16777216.0;
+  let u2 = (f32(b >> 8u) + 0.5) / 16777216.0;
+  D[idx] = vec2<f32>(sqrt(-2.0 * log(u1)) * cos(TWO_PI * u2), 0.0);
+}`;
+
+  SH.icscale = COMMON + /* wgsl */ `
+@group(0) @binding(1) var<storage, read_write> D: array<vec2<f32>>;
+@group(0) @binding(2) var<storage, read> ptab: array<f32>;
+fn plookup(k: f32) -> f32 {
+  let u = clamp((log(k) - P.lk0) / (P.lk1 - P.lk0), 0.0, 1.0) * f32(P.tabN - 1u);
+  let i0 = u32(floor(u)); let i1 = min(i0 + 1u, P.tabN - 1u);
+  return exp(mix(ptab[i0], ptab[i1], u - floor(u)));
+}
+@compute @workgroup_size(256)
+fn main(@builtin(workgroup_id) wid: vec3<u32>, @builtin(num_workgroups) nwg: vec3<u32>, @builtin(local_invocation_index) lid: u32) {
+  let idx = tid(wid, nwg, lid); if (idx >= P.n3) { return; }
+  if (idx == 0u) { D[0] = vec2<f32>(0.0); return; }
+  let q = dec(idx);
+  let kx = TWO_PI * f32(nidx(q.x)) / P.L; let ky = TWO_PI * f32(nidx(q.y)) / P.L; let kz = TWO_PI * f32(nidx(q.z)) / P.L;
+  let k = sqrt(kx * kx + ky * ky + kz * kz);
+  let d = D[idx];
+  var amp = sqrt(plookup(k)) * P.icAmp;
+  if (P.fixedIC == 1u) { let m = length(d); amp = amp / select(1.0, m, m > 0.0); }
+  D[idx] = d * amp;
+}`;
+
+  SH.fields = COMMON + /* wgsl */ `
+@group(0) @binding(1) var<storage, read> D: array<vec2<f32>>;
+@group(0) @binding(2) var<storage, read_write> A: array<vec2<f32>>;
+@group(0) @binding(3) var<storage, read_write> B: array<vec2<f32>>;
+@compute @workgroup_size(256)
+fn main(@builtin(workgroup_id) wid: vec3<u32>, @builtin(num_workgroups) nwg: vec3<u32>, @builtin(local_invocation_index) lid: u32) {
+  let idx = tid(wid, nwg, lid); if (idx >= P.n3) { return; }
+  let q = dec(idx);
+  let nx = nidx(q.x); let ny = nidx(q.y); let nz = nidx(q.z);
+  let kkx = TWO_PI * f32(nx) / P.L; let kky = TWO_PI * f32(ny) / P.L; let kkz = TWO_PI * f32(nz) / P.L;
+  let k2 = kkx * kkx + kky * kky + kkz * kkz;
+  let kx = select(kkx, 0.0, q.x == P.half); let ky = select(kky, 0.0, q.y == P.half); let kz = select(kkz, 0.0, q.z == P.half);
+  var g = 0.0; if (k2 > 0.0) { g = 1.0 / k2; }
+  if (P.useFilt == 1u) {
+    let w = sincn(nx) * sincn(ny) * sincn(nz); let w2 = w * w;
+    g = g * exp(-k2 * P.cell * P.cell * P.beta) / (w2 * w2);
+  }
+  var d = D[idx]; if (idx == 0u) { d = vec2<f32>(0.0); }
+  let G = d * g;
+  let sm = exp(-0.5 * k2 * P.cell * P.cell);
+  A[idx] = vec2<f32>(-kx * G.y - ky * G.x, kx * G.x - ky * G.y);
+  B[idx] = vec2<f32>(-kz * G.y - d.y * sm, kz * G.x + d.x * sm);
+}`;
+
+  SH.icpart = COMMON + /* wgsl */ `
+@group(0) @binding(1) var<storage, read> A: array<vec2<f32>>;
+@group(0) @binding(2) var<storage, read> B: array<vec2<f32>>;
+@group(0) @binding(3) var<storage, read_write> pos: array<f32>;
+@group(0) @binding(4) var<storage, read_write> mom: array<f32>;
+@compute @workgroup_size(256)
+fn main(@builtin(workgroup_id) wid: vec3<u32>, @builtin(num_workgroups) nwg: vec3<u32>, @builtin(local_invocation_index) lid: u32) {
+  let idx = tid(wid, nwg, lid); if (idx >= P.n3) { return; }
+  let q = dec(idx);
+  let psi = vec3<f32>(A[idx].x, A[idx].y, B[idx].x);
+  let nf = f32(P.n);
+  for (var c = 0u; c < 3u; c++) {
+    var x = f32(q[c]) + P.di * psi[c] / P.cell;
+    x = x - nf * floor(x / nf);
+    if (x >= nf) { x = 0.0; }
+    pos[3u * idx + c] = x;
+    mom[3u * idx + c] = P.pf * psi[c] / P.cell;
+  }
+}`;
+
+  SH.drift = COMMON + /* wgsl */ `
+@group(0) @binding(1) var<storage, read_write> pos: array<f32>;
+@group(0) @binding(2) var<storage, read> mom: array<f32>;
+@group(0) @binding(3) var<storage, read_write> dep: array<atomic<u32>>;
+@compute @workgroup_size(256)
+fn main(@builtin(workgroup_id) wid: vec3<u32>, @builtin(num_workgroups) nwg: vec3<u32>, @builtin(local_invocation_index) lid: u32) {
+  let p = tid(wid, nwg, lid); if (p >= P.np) { return; }
+  let nf = f32(P.n);
+  var x = vec3<f32>(0.0);
+  for (var c = 0u; c < 3u; c++) {
+    var v = pos[3u * p + c] + mom[3u * p + c] * P.dr;
+    v = v - nf * floor(v / nf);
+    if (v >= nf) { v = 0.0; }
+    pos[3u * p + c] = v; x[c] = v;
+  }
+  let fl = floor(x);
+  let i0 = vec3<u32>(fl); let f = x - fl; let g = vec3<f32>(1.0) - f;
+  let nxt = i0 + vec3<u32>(1u);
+  let i1 = select(nxt, vec3<u32>(0u), nxt == vec3<u32>(P.n));
+  let S = 65536.0;
+  atomicAdd(&dep[cidx(i0.x, i0.y, i0.z)], u32(g.x * g.y * g.z * S + 0.5));
+  atomicAdd(&dep[cidx(i0.x, i0.y, i1.z)], u32(g.x * g.y * f.z * S + 0.5));
+  atomicAdd(&dep[cidx(i0.x, i1.y, i0.z)], u32(g.x * f.y * g.z * S + 0.5));
+  atomicAdd(&dep[cidx(i0.x, i1.y, i1.z)], u32(g.x * f.y * f.z * S + 0.5));
+  atomicAdd(&dep[cidx(i1.x, i0.y, i0.z)], u32(f.x * g.y * g.z * S + 0.5));
+  atomicAdd(&dep[cidx(i1.x, i0.y, i1.z)], u32(f.x * g.y * f.z * S + 0.5));
+  atomicAdd(&dep[cidx(i1.x, i1.y, i0.z)], u32(f.x * f.y * g.z * S + 0.5));
+  atomicAdd(&dep[cidx(i1.x, i1.y, i1.z)], u32(f.x * f.y * f.z * S + 0.5));
+}`;
+
+  SH.dep2d = COMMON + /* wgsl */ `
+@group(0) @binding(1) var<storage, read_write> dep: array<atomic<u32>>;
+@group(0) @binding(2) var<storage, read_write> D: array<vec2<f32>>;
+@compute @workgroup_size(256)
+fn main(@builtin(workgroup_id) wid: vec3<u32>, @builtin(num_workgroups) nwg: vec3<u32>, @builtin(local_invocation_index) lid: u32) {
+  let idx = tid(wid, nwg, lid); if (idx >= P.n3) { return; }
+  D[idx] = vec2<f32>(f32(atomicLoad(&dep[idx])) / 65536.0 * (f32(P.n3) / f32(P.np)) - 1.0, 0.0);
+}`;
+
+  SH.measure = COMMON + /* wgsl */ `
+@group(0) @binding(1) var<storage, read> D: array<vec2<f32>>;
+@group(0) @binding(2) var<storage, read_write> bins: array<atomic<u32>>;
+fn atomicAddF(p: ptr<storage, atomic<u32>, read_write>, v: f32) {
+  var old = atomicLoad(p);
+  loop {
+    let nw = bitcast<u32>(bitcast<f32>(old) + v);
+    let r = atomicCompareExchangeWeak(p, old, nw);
+    if (r.exchanged) { break; }
+    old = r.old_value;
+  }
+}
+@compute @workgroup_size(256)
+fn main(@builtin(workgroup_id) wid: vec3<u32>, @builtin(num_workgroups) nwg: vec3<u32>, @builtin(local_invocation_index) lid: u32) {
+  let idx = tid(wid, nwg, lid); if (idx >= P.n3) { return; }
+  let q = dec(idx);
+  if (P.sub > 1u) {
+    let h = (q.x * 73856093u) ^ (q.y * 19349663u) ^ (q.z * 83492791u);
+    if ((h >> 3u) % P.sub != 0u) { return; }
+  }
+  let nx = nidx(q.x); let ny = nidx(q.y); let nz = nidx(q.z);
+  let n2 = nx * nx + ny * ny + nz * nz;
+  if (n2 == 0) { return; }
+  let na = sqrt(f32(n2));
+  if (na > f32(P.half) + 0.0001) { return; }
+  let b = min(u32(round(na)) - 1u, P.nbins - 1u);
+  let w = sincn(nx) * sincn(ny) * sincn(nz); let w2 = w * w;
+  let d = D[idx];
+  atomicAddF(&bins[b], (d.x * d.x + d.y * d.y) / (w2 * w2));
+  atomicAdd(&bins[P.nbins + b], 1u);
+}`;
+
+  SH.gather = COMMON + /* wgsl */ `
+@group(0) @binding(1) var<storage, read> A: array<vec2<f32>>;
+@group(0) @binding(2) var<storage, read> B: array<vec2<f32>>;
+@group(0) @binding(3) var<storage, read> pos: array<f32>;
+@group(0) @binding(4) var<storage, read_write> mom: array<f32>;
+@compute @workgroup_size(256)
+fn main(@builtin(workgroup_id) wid: vec3<u32>, @builtin(num_workgroups) nwg: vec3<u32>, @builtin(local_invocation_index) lid: u32) {
+  let p = tid(wid, nwg, lid); if (p >= P.np) { return; }
+  let x = vec3<f32>(pos[3u * p], pos[3u * p + 1u], pos[3u * p + 2u]);
+  let fl = floor(x);
+  let i0 = vec3<u32>(fl); let f = x - fl; let g = vec3<f32>(1.0) - f;
+  let nxt = i0 + vec3<u32>(1u);
+  let i1 = select(nxt, vec3<u32>(0u), nxt == vec3<u32>(P.n));
+  var acc = vec3<f32>(0.0);
+  var ix = array<u32, 8>(cidx(i0.x, i0.y, i0.z), cidx(i0.x, i0.y, i1.z), cidx(i0.x, i1.y, i0.z), cidx(i0.x, i1.y, i1.z),
+                         cidx(i1.x, i0.y, i0.z), cidx(i1.x, i0.y, i1.z), cidx(i1.x, i1.y, i0.z), cidx(i1.x, i1.y, i1.z));
+  var w = array<f32, 8>(g.x * g.y * g.z, g.x * g.y * f.z, g.x * f.y * g.z, g.x * f.y * f.z,
+                        f.x * g.y * g.z, f.x * g.y * f.z, f.x * f.y * g.z, f.x * f.y * f.z);
+  for (var j = 0u; j < 8u; j++) {
+    let a = A[ix[j]]; let b = B[ix[j]];
+    acc += w[j] * vec3<f32>(a.x, a.y, b.x);
+  }
+  for (var c = 0u; c < 3u; c++) { mom[3u * p + c] = mom[3u * p + c] + acc[c] * P.kfac; }
+}`;
+
+  function fftShader(N, axis) {
+    const log2 = Math.round(Math.log2(N));
+    const loc = axis === 2 ? 'let base = line * N; let stride = 1u;'
+      : axis === 1 ? 'let base = (line / N) * N * N + (line % N); let stride = N;'
+        : 'let base = (line / N) * N + (line % N); let stride = N * N;';
+    return /* wgsl */ `
+const N: u32 = ${N}u;
+const LOGN: u32 = ${log2}u;
+@group(0) @binding(0) var<storage, read_write> data: array<vec2<f32>>;
+@group(0) @binding(1) var<storage, read> tw: array<vec2<f32>>;
+var<workgroup> sh: array<vec2<f32>, ${N}>;
+@compute @workgroup_size(${N / 2})
+fn main(@builtin(workgroup_id) wid: vec3<u32>, @builtin(num_workgroups) nwg: vec3<u32>, @builtin(local_invocation_index) t: u32) {
+  let line = wid.y * nwg.x + wid.x;
+  ${loc}
+  let i0 = t; let i1 = t + N / 2u;
+  sh[reverseBits(i0) >> (32u - LOGN)] = data[base + i0 * stride];
+  sh[reverseBits(i1) >> (32u - LOGN)] = data[base + i1 * stride];
+  workgroupBarrier();
+  for (var s = 0u; s < LOGN; s++) {
+    let half = 1u << s;
+    let pos = t & (half - 1u);
+    let i = ((t >> s) << (s + 1u)) + pos;
+    let j = i + half;
+    let w = tw[pos * (N >> (s + 1u))];
+    let a = sh[i]; let b = sh[j];
+    let wb = vec2<f32>(w.x * b.x - w.y * b.y, w.x * b.y + w.y * b.x);
+    sh[i] = a + wb; sh[j] = a - wb;
+    workgroupBarrier();
+  }
+  let sc = tw[N / 2u].x;
+  data[base + i0 * stride] = sh[i0] * sc;
+  data[base + i1 * stride] = sh[i1] * sc;
+}`;
+  }
+
+  /* ---------- устройство ---------- */
+  async function requestDevice() {
+    if (typeof navigator === 'undefined' || !navigator.gpu) return null;
+    let adapter = null;
+    try { adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' }); } catch (e) { return null; }
+    if (!adapter) return null;
+    const lim = adapter.limits, cap = 2147483644;
+    const required = {
+      maxStorageBufferBindingSize: Math.min(lim.maxStorageBufferBindingSize, cap),
+      maxBufferSize: Math.min(lim.maxBufferSize, cap),
+    };
+    let device;
+    try { device = await adapter.requestDevice({ requiredLimits: required }); }
+    catch (e) { try { device = await adapter.requestDevice(); } catch (e2) { return null; } }
+    let desc = '';
+    try { const inf = adapter.info || (adapter.requestAdapterInfo && await adapter.requestAdapterInfo()); if (inf) desc = [inf.vendor, inf.architecture, inf.description].filter(Boolean).join(' '); } catch (e) { /* нет данных */ }
+    return { adapter, device, desc, limits: device.limits };
+  }
+  /* какие N поместятся в память и лимиты буферов */
+  function maxN(limits) {
+    const cap = Math.min(limits.maxStorageBufferBindingSize, limits.maxBufferSize);
+    const out = [];
+    [32, 64, 128, 256].forEach(function (n) { if (12 * n * n * n <= cap && n <= limits.maxComputeWorkgroupsPerDimension) out.push(n); });
+    return out;
+  }
+
+  function polyfit(x, y, deg) {
+    const m = deg + 1, A = [], v = new Array(m).fill(0);
+    for (let i = 0; i < m; i++) A.push(new Array(m).fill(0));
+    for (let j = 0; j < x.length; j++) for (let i = 0; i < m; i++) { v[i] += y[j] * Math.pow(x[j], i); for (let l = 0; l < m; l++) A[i][l] += Math.pow(x[j], i + l); }
+    for (let i = 0; i < m; i++) {
+      let piv = i; for (let r = i + 1; r < m; r++) if (Math.abs(A[r][i]) > Math.abs(A[piv][i])) piv = r;
+      [A[i], A[piv]] = [A[piv], A[i]]; [v[i], v[piv]] = [v[piv], v[i]];
+      for (let r = i + 1; r < m; r++) { const f = A[r][i] / A[i][i]; for (let l = i; l < m; l++) A[r][l] -= f * A[i][l]; v[r] -= f * v[i]; }
+    }
+    const c = new Array(m).fill(0);
+    for (let i = m - 1; i >= 0; i--) { let t = v[i]; for (let l = i + 1; l < m; l++) t -= A[i][l] * c[l]; c[i] = t / A[i][i]; }
+    return (xx) => { let r = 0; for (let i = 0; i < m; i++) r += c[i] * Math.pow(xx, i); return r; };
+  }
+
+  /* ---------- симуляция ---------- */
+  async function createSim(dev, N, opts) {
+    opts = opts || {};
+    const device = dev.device;
+    const L = opts.L || C.L, fixed = !!opts.fixed, seed = (opts.seed || 1) >>> 0;
+    const N3 = N * N * N, NN = N * N, half = N >> 1, cell = L / N, V = L * L * L, Np = N3;
+    const ai = 1 / (1 + C.zi), s0 = Math.log(ai);
+    const nSteps = Math.round(-s0 / (opts.dlna || 0.025)), DS = -s0 / nSteps;
+    const beta = opts.beta === undefined ? 1 / 12 : opts.beta;
+    const nb = half;
+
+    device.pushErrorScope('out-of-memory');
+    device.pushErrorScope('validation');
+    const U = GPUBufferUsage;
+    const mk = (size, usage, label) => device.createBuffer({ size, usage, label });
+    const bufs = {
+      pos: mk(12 * N3, U.STORAGE | U.COPY_SRC | U.COPY_DST, 'pos'),
+      mom: mk(12 * N3, U.STORAGE | U.COPY_SRC | U.COPY_DST, 'mom'),
+      dep: mk(4 * N3, U.STORAGE | U.COPY_DST, 'dep'),
+      D: mk(8 * N3, U.STORAGE | U.COPY_SRC | U.COPY_DST, 'D'),
+      A: mk(8 * N3, U.STORAGE | U.COPY_SRC | U.COPY_DST, 'A'),
+      B: mk(8 * N3, U.STORAGE | U.COPY_SRC | U.COPY_DST, 'B'),
+      params: mk(96, U.UNIFORM | U.COPY_DST, 'params'),
+      bins: mk(8 * nb, U.STORAGE | U.COPY_SRC | U.COPY_DST, 'bins'),
+      stage: mk(8 * nb, U.MAP_READ | U.COPY_DST, 'stage'),
+      dbg: mk(Math.max(12 * N3, 16), U.MAP_READ | U.COPY_DST, 'dbg'),
+    };
+    /* таблица ln P(k) */
+    const kf = TWO_PI / L, kNyq = (Math.PI * N) / L, tabN = 8192;
+    const lk0 = Math.log(kf * 0.4), lk1 = Math.log(kNyq * 2.0);
+    const ptabData = new Float32Array(tabN);
+    for (let i = 0; i < tabN; i++) ptabData[i] = Math.log(K.P0(Math.exp(lk0 + ((lk1 - lk0) * i) / (tabN - 1))));
+    bufs.ptab = mk(4 * tabN, U.STORAGE | U.COPY_DST, 'ptab');
+    device.queue.writeBuffer(bufs.ptab, 0, ptabData);
+    /* twiddle */
+    const mkTw = (inv) => {
+      const a = new Float32Array(2 * (half + 1));
+      for (let m = 0; m < half; m++) { const th = (TWO_PI * m) / N; a[2 * m] = Math.cos(th); a[2 * m + 1] = inv ? Math.sin(th) : -Math.sin(th); }
+      a[2 * half] = inv ? 1 / N : 1;
+      const b = mk(a.byteLength, U.STORAGE | U.COPY_DST, inv ? 'twInv' : 'twFwd');
+      device.queue.writeBuffer(b, 0, a); return b;
+    };
+    bufs.twF = mkTw(false); bufs.twI = mkTw(true);
+
+    /* шейдеры */
+    const pipe = {};
+    for (const k of Object.keys(SH)) pipe[k] = device.createComputePipeline({ layout: 'auto', compute: { module: device.createShaderModule({ code: SH[k], label: k }), entryPoint: 'main' }, label: k });
+    const fftPipe = [0, 1, 2].map((ax) => device.createComputePipeline({ layout: 'auto', compute: { module: device.createShaderModule({ code: fftShader(N, ax), label: 'fft' + ax }), entryPoint: 'main' }, label: 'fft' + ax }));
+    const bgCache = {};
+    const bg = (key, pl, entries) => bgCache[key] || (bgCache[key] = device.createBindGroup({ layout: pl.getBindGroupLayout(0), entries: entries.map((b, i) => ({ binding: i, resource: { buffer: b } })) }));
+    const P = bufs.params;
+    const B = bufs;
+    const groups = {
+      noise: bg('noise', pipe.noise, [P, B.D]),
+      icscale: bg('icscale', pipe.icscale, [P, B.D, B.ptab]),
+      fields: bg('fields', pipe.fields, [P, B.D, B.A, B.B]),
+      icpart: bg('icpart', pipe.icpart, [P, B.A, B.B, B.pos, B.mom]),
+      drift: bg('drift', pipe.drift, [P, B.pos, B.mom, B.dep]),
+      dep2d: bg('dep2d', pipe.dep2d, [P, B.dep, B.D]),
+      measure: bg('measure', pipe.measure, [P, B.D, B.bins]),
+      gather: bg('gather', pipe.gather, [P, B.A, B.B, B.pos, B.mom]),
+    };
+    const fftBG = (name, inv, ax) => {
+      const key = 'fft' + name + inv + ax;
+      return bgCache[key] || (bgCache[key] = device.createBindGroup({ layout: fftPipe[ax].getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: B[name] } }, { binding: 1, resource: { buffer: inv ? B.twI : B.twF } }] }));
+    };
+    function runFFT(enc, name, inv) {
+      for (const ax of [2, 1, 0]) {
+        const p = enc.beginComputePass(); p.setPipeline(fftPipe[ax]); p.setBindGroup(0, fftBG(name, inv ? 1 : 0, ax)); p.dispatchWorkgroups(N, N); p.end();
+      }
+    }
+    function run(enc, name, count) {
+      const p = enc.beginComputePass(); p.setPipeline(pipe[name]); p.setBindGroup(0, groups[name]);
+      const g = Math.ceil(count / WG), gx = Math.min(g, 32768), gy = Math.ceil(g / gx);
+      p.dispatchWorkgroups(gx, gy); p.end();
+    }
+
+    /* параметры */
+    const pbuf = new ArrayBuffer(96), pf32 = new Float32Array(pbuf), pu32 = new Uint32Array(pbuf);
+    const sub = Math.max(1, Math.round(N3 / (1 << 17)));
+    function setParams(o) {
+      pu32[0] = N; pu32[1] = NN; pu32[2] = N3; pu32[3] = half;
+      pf32[4] = L; pf32[5] = cell; pf32[6] = o.dr || 0; pf32[7] = o.kfac || 0;
+      pf32[8] = o.icAmp || 0; pf32[9] = o.di || 0; pf32[10] = o.pf || 0; pf32[11] = beta;
+      pu32[12] = sub; pu32[13] = nb; pu32[14] = tabN; pu32[15] = fixed ? 1 : 0;
+      pf32[16] = lk0; pf32[17] = lk1; pu32[18] = o.useFilt ? 1 : 0; pu32[19] = seed;
+      pu32[20] = Np;
+      device.queue.writeBuffer(P, 0, pbuf);
+    }
+
+    /* таблица оболочек: число мод и средний |k| */
+    const shellCnt = new Float64Array(nb), shellK = new Float64Array(nb);
+    for (let i = 0; i <= half; i++) for (let j = 0; j <= half; j++) for (let m = 0; m <= half; m++) {
+      const n2 = i * i + j * j + m * m; if (!n2) continue;
+      const na = Math.sqrt(n2); if (na > half + 1e-6) continue;
+      const b = Math.min(Math.round(na) - 1, nb - 1);
+      const mult = (i === 0 || i === half ? 1 : 2) * (j === 0 || j === half ? 1 : 2) * (m === 0 || m === half ? 1 : 2);
+      shellCnt[b] += mult; shellK[b] += mult * na * kf;
+    }
+    for (let b = 0; b < nb; b++) shellK[b] = shellCnt[b] ? shellK[b] / shellCnt[b] : (b + 1) * kf;
+
+    const S = {
+      gpu: true, M: N, N, Np, cell, L, fixed, nSteps, s0, s: s0, a: ai, aStat: ai, n: 0, done: false, bufs, device,
+      pkK: Float64Array.from(shellK), pkP: new Float64Array(nb), pkN: new Int32Array(nb), nb,
+      shot: V / Np, kNyq, kf, inflight: 0, statsReady: false,
+    };
+    const norm = V / (N3 * N3);
+    let stageBusy = false, pending = null;
+
+    function ingest(arr) {
+      const f = new Float32Array(arr.buffer, 0, nb), c = new Uint32Array(arr.buffer, 4 * nb, nb);
+      for (let b = 0; b < nb; b++) { if (c[b]) { S.pkP[b] = (f[b] / c[b]) * norm; S.pkN[b] = shellCnt[b]; } }
+      S.statsReady = true;
+      if (S.onstats) S.onstats();
+    }
+    function encodeMeasure(enc, aNow) {
+      enc.clearBuffer(B.bins);
+      run(enc, 'measure', N3);
+      if (stageBusy) return false;
+      stageBusy = true;
+      enc.copyBufferToBuffer(B.bins, 0, B.stage, 0, 8 * nb);
+      S.aPending = aNow;
+      return true;
+    }
+    function afterSubmit(copied) {
+      if (!copied) return;
+      const aTag = S.aPending;
+      pending = B.stage.mapAsync(GPUMapMode.READ).then(() => {
+        const arr = new Uint32Array(B.stage.getMappedRange().slice(0));
+        B.stage.unmap(); stageBusy = false; pending = null;
+        S.aStat = aTag; ingest(arr);
+      }).catch(() => { stageBusy = false; pending = null; });
+    }
+    S.flushStats = async function () { while (stageBusy && pending) await pending; };
+    /* свежее измерение по текущему состоянию (D хранит δ(k) после последнего шага) */
+    S.refreshStats = async function () {
+      await S.flushStats();
+      const enc = device.createCommandEncoder();
+      const copied = encodeMeasure(enc, S.a);
+      device.queue.submit([enc.finish()]);
+      afterSubmit(copied);
+      await S.flushStats();
+    };
+
+    /* ---- начальные условия ---- */
+    {
+      setParams({ icAmp: Math.sqrt((fixed ? N3 * N3 : N3) / V), useFilt: 0 });
+      const enc = device.createCommandEncoder();
+      if (opts.noise) device.queue.writeBuffer(B.D, 0, (() => { const a = new Float32Array(2 * N3); for (let i = 0; i < N3; i++) a[2 * i] = opts.noise[i]; return a; })());
+      else run(enc, 'noise', N3);
+      runFFT(enc, 'D', false);
+      run(enc, 'icscale', N3);
+      run(enc, 'fields', N3);
+      runFFT(enc, 'A', true); runFFT(enc, 'B', true);
+      device.queue.submit([enc.finish()]);
+    }
+    const Ei = K.Ef(ai), fi = K.fg(ai), di = K.Dg(ai), pfac = ai * ai * Ei * fi * di;
+    const tSteps = (n) => { /* коэффициенты шага n */
+      const s = s0 + n * DS;
+      const a1 = Math.exp(s + 0.25 * DS), a2 = Math.exp(s + 0.75 * DS), am = Math.exp(s + 0.5 * DS);
+      return { k1: ((1.5 * C.Om) / (a1 * K.Ef(a1) * cell)) * 0.5 * DS, k2: ((1.5 * C.Om) / (a2 * K.Ef(a2) * cell)) * 0.5 * DS, dr: DS / (am * am * K.Ef(am)) };
+    };
+    {
+      setParams({ di, pf: pfac });
+      let enc = device.createCommandEncoder();
+      run(enc, 'icpart', N3);
+      device.queue.submit([enc.finish()]);
+      /* плотность и первая сила, затем половинный «kick» */
+      setParams({ dr: 0, useFilt: 1, kfac: tSteps(0).k1 });
+      enc = device.createCommandEncoder();
+      enc.clearBuffer(B.dep);
+      run(enc, 'drift', Np); run(enc, 'dep2d', N3);
+      runFFT(enc, 'D', false);
+      const copied = encodeMeasure(enc, ai);
+      run(enc, 'fields', N3);
+      runFFT(enc, 'A', true); runFFT(enc, 'B', true);
+      run(enc, 'gather', Np);
+      device.queue.submit([enc.finish()]);
+      afterSubmit(copied);
+    }
+    const err1 = await device.popErrorScope(), err2 = await device.popErrorScope();
+    if (err1 || err2) { const e = err1 || err2; throw new Error('WebGPU: ' + e.message); }
+    await S.flushStats();
+    S.pk0 = Float64Array.from(S.pkP);
+
+    /* ---- шаг ---- */
+    S.step = function () {
+      if (S.n >= nSteps) { S.done = true; return false; }
+      const t = tSteps(S.n), tn = S.n + 1 < nSteps ? tSteps(S.n + 1) : null;
+      setParams({ dr: t.dr, useFilt: 1, kfac: t.k2 + (tn ? tn.k1 : 0) });
+      const enc = device.createCommandEncoder();
+      enc.clearBuffer(B.dep);
+      run(enc, 'drift', Np); run(enc, 'dep2d', N3);
+      runFFT(enc, 'D', false);
+      const aNext = Math.exp(S.s + DS);
+      const copied = encodeMeasure(enc, aNext);
+      run(enc, 'fields', N3);
+      runFFT(enc, 'A', true); runFFT(enc, 'B', true);
+      run(enc, 'gather', Np);
+      device.queue.submit([enc.finish()]);
+      afterSubmit(copied);
+      S.inflight++;
+      device.queue.onSubmittedWorkDone().then(() => { S.inflight--; });
+      S.n++;
+      S.s += DS; S.a = Math.exp(S.s);
+      if (S.n >= nSteps) { S.s = 0; S.a = 1; S.done = true; }
+      return true;
+    };
+
+    S.growth = function () {
+      let m = 0, k = 0;
+      for (let b = 0; b < Math.min(3, nb); b++) if (S.pk0[b] > 0) { m += S.pkP[b] / S.pk0[b]; k++; }
+      const r = K.Dg(S.aStat) / K.Dg(ai);
+      return { meas: k ? m / k : 1, theory: r * r };
+    };
+
+    /* ξ(r) из измеренных оболочек спектра */
+    const sigS = 0.7 * cell, r0 = 30, dR = 2, nR = Math.floor((200 - r0) / dR) + 1;
+    S.nR = nR; S.xiR = new Float64Array(nR); S.xiV = new Float64Array(nR); S.xiN = new Int32Array(nR).fill(1); S.xi0 = new Float64Array(nR); S.sigS = sigS;
+    function xiFrom(pk, out) {
+      for (let i = 0; i < nR; i++) {
+        const r = r0 + i * dR; let sum = 0;
+        for (let b = 0; b < nb; b++) { const k = shellK[b], x = k * r; sum += shellCnt[b] * pk[b] * Math.exp(-k * k * sigS * sigS) * (Math.sin(x) / x); }
+        out[i] = sum / V;
+      }
+    }
+    for (let i = 0; i < nR; i++) S.xiR[i] = r0 + i * dR;
+    xiFrom(S.pk0, S.xi0);
+    S.xi = function () { xiFrom(S.pkP, S.xiV); };
+
+    /* БАО: отношение к гладкому спектру после вычитания плавной составляющей */
+    S.bao = function (kmax) {
+      const D2 = Math.pow(K.Dg(S.aStat), 2), xs = [], ym = [], yt = [];
+      for (let b = 0; b < nb; b++) {
+        if (!S.pkN[b] || !(S.pkP[b] > 0)) continue;
+        const k = S.pkK[b]; if (k < 1.5 * kf || k > kmax) continue;
+        xs.push(k / kmax); ym.push(Math.log(S.pkP[b] / (D2 * K.Pnw(k)))); yt.push(Math.log(K.P0(k) / K.Pnw(k)));
+      }
+      const fm = polyfit(xs, ym, 3), ft = polyfit(xs, yt, 3);
+      const meas = xs.map((x, i) => ({ k: x * kmax, r: Math.exp(ym[i] - fm(x)) }));
+      const th = [];
+      for (let i = 0; i <= 120; i++) { const k = 0.02 + ((kmax - 0.02) * i) / 120; th.push({ k, r: Math.exp(Math.log(K.P0(k) / K.Pnw(k)) - ft(k / kmax)) }); }
+      return { meas, th };
+    };
+
+    /* отладка: прочитать буфер на процессор (для тестов, малые N) */
+    S.read = async function (name, bytes) {
+      const enc = device.createCommandEncoder();
+      enc.copyBufferToBuffer(B[name], 0, B.dbg, 0, bytes);
+      device.queue.submit([enc.finish()]);
+      await B.dbg.mapAsync(GPUMapMode.READ);
+      const out = new Float32Array(B.dbg.getMappedRange().slice(0, bytes)); B.dbg.unmap(); return out;
+    };
+    S.dispose = function () { Object.keys(bufs).forEach((k) => { try { bufs[k].destroy(); } catch (e) { /* уже освобождён */ } }); };
+    return S;
+  }
+
+  root.GpuCosmo = { requestDevice, maxN, createSim };
+})(typeof self !== 'undefined' ? self : globalThis);
+
+/* Рендер частиц на WebGPU: светящиеся спрайты читают положения прямо из буфера расчёта,
+   цвет берётся из сглаженной плотности на сетке. Затем HDR-буфер, свечение (bloom) и тональное сжатие. */
+(function (root) {
+  'use strict';
+
+  const PARTICLE_WGSL = /* wgsl */ `
+struct R {
+  view: mat4x4<f32>, proj: mat4x4<f32>,
+  vp: vec2<f32>, size: f32, opacity: f32,
+  slab: f32, dist: f32, n: u32, boost: f32,
+};
+@group(0) @binding(0) var<uniform> U: R;
+@group(0) @binding(1) var<storage, read> pos: array<f32>;
+@group(0) @binding(2) var<storage, read> dens: array<vec2<f32>>;
+struct VOut { @builtin(position) p: vec4<f32>, @location(0) uv: vec2<f32>, @location(1) col: vec3<f32> };
+
+fn cmap(t: f32) -> vec3<f32> {
+  let c0 = vec3<f32>(0.04, 0.06, 0.22); let c1 = vec3<f32>(0.10, 0.26, 0.60); let c2 = vec3<f32>(0.25, 0.70, 0.85);
+  let c3 = vec3<f32>(0.92, 0.93, 0.85); let c4 = vec3<f32>(1.0, 0.58, 0.18);
+  if (t < 0.3) { return mix(c0, c1, t / 0.3); }
+  if (t < 0.5) { return mix(c1, c2, (t - 0.3) / 0.2); }
+  if (t < 0.72) { return mix(c2, c3, (t - 0.5) / 0.22); }
+  return mix(c3, c4, clamp((t - 0.72) / 0.28, 0.0, 1.0));
+}
+fn dat(a: u32, b: u32, c: u32) -> f32 { return dens[(a * U.n + b) * U.n + c].y; }
+
+@vertex
+fn vs(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> VOut {
+  var corners = array<vec2<f32>, 6>(vec2<f32>(-1.0, -1.0), vec2<f32>(1.0, -1.0), vec2<f32>(-1.0, 1.0),
+                                    vec2<f32>(-1.0, 1.0), vec2<f32>(1.0, -1.0), vec2<f32>(1.0, 1.0));
+  let c = corners[vi];
+  var o: VOut; o.uv = c; o.col = vec3<f32>(0.0); o.p = vec4<f32>(2.0, 2.0, 2.0, 1.0);
+  let nf = f32(U.n);
+  let q = vec3<f32>(pos[3u * ii], pos[3u * ii + 1u], pos[3u * ii + 2u]);
+  let world = q * (2.0 / nf) - vec3<f32>(1.0);
+  let mv = U.view * vec4<f32>(world, 1.0);
+  let depth = -mv.z;
+  if (depth < 0.05) { return o; }
+  let vis = 1.0 - smoothstep(U.slab * 0.75, U.slab, abs(depth - U.dist));
+  if (vis < 0.002) { return o; }
+  var clip = U.proj * mv;
+  let sizePx = U.size * (3.4 / depth);
+  clip = vec4<f32>(clip.xy + c * sizePx / U.vp * clip.w, clip.zw);
+  /* плотность в точке: трилинейно по узлам сетки */
+  let fl = floor(q); let i0 = vec3<u32>(fl); let f = q - fl;
+  let nxt = i0 + vec3<u32>(1u);
+  let i1 = select(nxt, vec3<u32>(0u), nxt == vec3<u32>(U.n));
+  let d00 = mix(dat(i0.x, i0.y, i0.z), dat(i0.x, i0.y, i1.z), f.z);
+  let d01 = mix(dat(i0.x, i1.y, i0.z), dat(i0.x, i1.y, i1.z), f.z);
+  let d10 = mix(dat(i1.x, i0.y, i0.z), dat(i1.x, i0.y, i1.z), f.z);
+  let d11 = mix(dat(i1.x, i1.y, i0.z), dat(i1.x, i1.y, i1.z), f.z);
+  let delta = mix(mix(d00, d01, f.y), mix(d10, d11, f.y), f.x);
+  let t = clamp((log(max(1.0 + delta, 0.05)) * 0.4342945 + 1.0) / 3.1, 0.0, 1.0);
+  o.p = clip;
+  o.col = cmap(t) * (U.opacity * vis * (0.55 + U.boost * t));
+  return o;
+}
+@fragment
+fn fs(in: VOut) -> @location(0) vec4<f32> {
+  let d = length(in.uv);
+  if (d > 1.0) { discard; }
+  var a = 1.0 - d * d; a = a * a;
+  return vec4<f32>(in.col * a, 1.0);
+}`;
+
+  const BOX_WGSL = /* wgsl */ `
+struct R {
+  view: mat4x4<f32>, proj: mat4x4<f32>,
+  vp: vec2<f32>, size: f32, opacity: f32,
+  slab: f32, dist: f32, n: u32, boost: f32,
+};
+@group(0) @binding(0) var<uniform> U: R;
+const E = array<u32, 24>(0u,1u, 2u,3u, 4u,5u, 6u,7u, 0u,2u, 1u,3u, 4u,6u, 5u,7u, 0u,4u, 1u,5u, 2u,6u, 3u,7u);
+@vertex
+fn vs(@builtin(vertex_index) vi: u32) -> @builtin(position) vec4<f32> {
+  let c = E[vi];
+  let w = vec3<f32>(f32(c & 1u), f32((c >> 1u) & 1u), f32((c >> 2u) & 1u)) * 2.0 - vec3<f32>(1.0);
+  return U.proj * U.view * vec4<f32>(w, 1.0);
+}
+@fragment
+fn fs() -> @location(0) vec4<f32> { return vec4<f32>(0.035, 0.055, 0.12, 1.0); }`;
+
+  const FS_VS = /* wgsl */ `
+struct FS { @builtin(position) pos: vec4<f32>, @location(0) uv: vec2<f32> };
+@vertex
+fn vs(@builtin(vertex_index) i: u32) -> FS {
+  var p = array<vec2<f32>, 3>(vec2<f32>(-1.0, -1.0), vec2<f32>(3.0, -1.0), vec2<f32>(-1.0, 3.0));
+  var o: FS; o.pos = vec4<f32>(p[i], 0.0, 1.0); o.uv = vec2<f32>(p[i].x * 0.5 + 0.5, 0.5 - p[i].y * 0.5); return o;
+}`;
+  const DOWN_WGSL = FS_VS + /* wgsl */ `
+@group(0) @binding(0) var tex: texture_2d<f32>;
+@group(0) @binding(1) var smp: sampler;
+@fragment
+fn fs(in: FS) -> @location(0) vec4<f32> {
+  let ts = 1.0 / vec2<f32>(textureDimensions(tex));
+  var c = textureSample(tex, smp, in.uv + ts * vec2<f32>(-0.5, -0.5)) + textureSample(tex, smp, in.uv + ts * vec2<f32>(0.5, -0.5))
+        + textureSample(tex, smp, in.uv + ts * vec2<f32>(-0.5, 0.5)) + textureSample(tex, smp, in.uv + ts * vec2<f32>(0.5, 0.5));
+  c = c * 0.25;
+  return vec4<f32>(max(c.rgb - vec3<f32>(0.30), vec3<f32>(0.0)), 1.0);
+}`;
+  const BLUR_WGSL = FS_VS + /* wgsl */ `
+@group(0) @binding(0) var tex: texture_2d<f32>;
+@group(0) @binding(1) var smp: sampler;
+@group(0) @binding(2) var<uniform> dir: vec4<f32>;
+@fragment
+fn fs(in: FS) -> @location(0) vec4<f32> {
+  let ts = 1.0 / vec2<f32>(textureDimensions(tex));
+  let d = dir.xy * ts;
+  var c = textureSample(tex, smp, in.uv).rgb * 0.2270270;
+  c += (textureSample(tex, smp, in.uv + d * 1.3846154).rgb + textureSample(tex, smp, in.uv - d * 1.3846154).rgb) * 0.3162162;
+  c += (textureSample(tex, smp, in.uv + d * 3.2307692).rgb + textureSample(tex, smp, in.uv - d * 3.2307692).rgb) * 0.0702703;
+  return vec4<f32>(c, 1.0);
+}`;
+  const COMP_WGSL = FS_VS + /* wgsl */ `
+@group(0) @binding(0) var hdr: texture_2d<f32>;
+@group(0) @binding(1) var bloom: texture_2d<f32>;
+@group(0) @binding(2) var smp: sampler;
+@group(0) @binding(3) var<uniform> U: vec4<f32>;
+@fragment
+fn fs(in: FS) -> @location(0) vec4<f32> {
+  let h = textureSample(hdr, smp, in.uv).rgb;
+  let b = textureSample(bloom, smp, in.uv).rgb;
+  var c = h + b * U.y;
+  c = vec3<f32>(1.0) - exp(-c * U.x);
+  let q = in.uv - vec2<f32>(0.5);
+  c = c * (1.0 - 0.5 * dot(q, q));
+  let bg = vec3<f32>(0.016, 0.024, 0.048);
+  return vec4<f32>(bg * (vec3<f32>(1.0) - c) + c, 1.0);
+}`;
+
+  /* матрицы (столбцы подряд, диапазон глубины WebGPU 0..1) */
+  function perspective(fovy, aspect, near, far) {
+    const f = 1 / Math.tan(fovy / 2), m = new Float32Array(16);
+    m[0] = f / aspect; m[5] = f; m[10] = far / (near - far); m[11] = -1; m[14] = (far * near) / (near - far);
+    return m;
+  }
+  function lookAt(e, t, up) {
+    const z = [e[0] - t[0], e[1] - t[1], e[2] - t[2]]; let l = Math.hypot(z[0], z[1], z[2]); z[0] /= l; z[1] /= l; z[2] /= l;
+    const x = [up[1] * z[2] - up[2] * z[1], up[2] * z[0] - up[0] * z[2], up[0] * z[1] - up[1] * z[0]]; l = Math.hypot(x[0], x[1], x[2]); x[0] /= l; x[1] /= l; x[2] /= l;
+    const y = [z[1] * x[2] - z[2] * x[1], z[2] * x[0] - z[0] * x[2], z[0] * x[1] - z[1] * x[0]];
+    const m = new Float32Array(16);
+    m[0] = x[0]; m[1] = y[0]; m[2] = z[0]; m[4] = x[1]; m[5] = y[1]; m[6] = z[1]; m[8] = x[2]; m[9] = y[2]; m[10] = z[2];
+    m[12] = -(x[0] * e[0] + x[1] * e[1] + x[2] * e[2]); m[13] = -(y[0] * e[0] + y[1] * e[1] + y[2] * e[2]); m[14] = -(z[0] * e[0] + z[1] * e[1] + z[2] * e[2]); m[15] = 1;
+    return m;
+  }
+
+  function createRenderer(dev, canvas) {
+    const device = dev.device;
+    const ctx = canvas.getContext('webgpu');
+    if (!ctx) throw new Error('canvas.getContext("webgpu") вернул null');
+    const fmt = navigator.gpu.getPreferredCanvasFormat();
+    ctx.configure({ device, format: fmt, alphaMode: 'opaque' });
+    const HDR = 'rgba16float';
+    const add = { color: { srcFactor: 'one', dstFactor: 'one', operation: 'add' }, alpha: { srcFactor: 'one', dstFactor: 'one', operation: 'add' } };
+    const mod = (code, label) => device.createShaderModule({ code, label });
+    const partMod = mod(PARTICLE_WGSL, 'particles');
+    const partPipe = device.createRenderPipeline({
+      layout: 'auto', label: 'particles',
+      vertex: { module: partMod, entryPoint: 'vs' },
+      fragment: { module: partMod, entryPoint: 'fs', targets: [{ format: HDR, blend: add }] },
+      primitive: { topology: 'triangle-list' },
+    });
+    const boxMod = mod(BOX_WGSL, 'box');
+    const boxPipe = device.createRenderPipeline({
+      layout: 'auto', label: 'box',
+      vertex: { module: boxMod, entryPoint: 'vs' },
+      fragment: { module: boxMod, entryPoint: 'fs', targets: [{ format: HDR, blend: add }] },
+      primitive: { topology: 'line-list' },
+    });
+    const fsPipe = (code, format, label) => { const m = mod(code, label); return device.createRenderPipeline({ layout: 'auto', label, vertex: { module: m, entryPoint: 'vs' }, fragment: { module: m, entryPoint: 'fs', targets: [{ format }] }, primitive: { topology: 'triangle-list' } }); };
+    const downPipe = fsPipe(DOWN_WGSL, HDR, 'down'), blurPipe = fsPipe(BLUR_WGSL, HDR, 'blur'), compPipe = fsPipe(COMP_WGSL, fmt, 'comp');
+    const smp = device.createSampler({ magFilter: 'linear', minFilter: 'linear', addressModeU: 'clamp-to-edge', addressModeV: 'clamp-to-edge' });
+    const U = GPUBufferUsage;
+    const uni = device.createBuffer({ size: 160, usage: U.UNIFORM | U.COPY_DST, label: 'R' });
+    const dirH = device.createBuffer({ size: 16, usage: U.UNIFORM | U.COPY_DST }), dirV = device.createBuffer({ size: 16, usage: U.UNIFORM | U.COPY_DST });
+    device.queue.writeBuffer(dirH, 0, new Float32Array([1, 0, 0, 0])); device.queue.writeBuffer(dirV, 0, new Float32Array([0, 1, 0, 0]));
+    const comp = device.createBuffer({ size: 16, usage: U.UNIFORM | U.COPY_DST });
+
+    const R = { w: 0, h: 0, sim: null, ubuf: new ArrayBuffer(160) };
+    const f32 = new Float32Array(R.ubuf), u32 = new Uint32Array(R.ubuf);
+    let tex = null, partBG = null, boxBG = null, downBG = null, blurHBG = null, blurVBG = null, compBG = null;
+
+    R.resize = function (w, h, dpr) {
+      w = Math.max(2, Math.round(w * dpr)); h = Math.max(2, Math.round(h * dpr));
+      if (canvas.width !== w) canvas.width = w;
+      if (canvas.height !== h) canvas.height = h;
+      if (tex && R.w === w && R.h === h) return;
+      R.w = w; R.h = h; R.dpr = dpr;
+      if (tex) { tex.hdr.destroy(); tex.a.destroy(); tex.b.destroy(); }
+      const mkT = (ww, hh) => device.createTexture({ size: [ww, hh], format: HDR, usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING });
+      const hw = Math.max(2, w >> 1), hh = Math.max(2, h >> 1);
+      tex = { hdr: mkT(w, h), a: mkT(hw, hh), b: mkT(hw, hh) };
+      tex.hv = tex.hdr.createView(); tex.av = tex.a.createView(); tex.bv = tex.b.createView();
+      downBG = device.createBindGroup({ layout: downPipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: tex.hv }, { binding: 1, resource: smp }] });
+      blurHBG = device.createBindGroup({ layout: blurPipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: tex.av }, { binding: 1, resource: smp }, { binding: 2, resource: { buffer: dirH } }] });
+      blurVBG = device.createBindGroup({ layout: blurPipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: tex.bv }, { binding: 1, resource: smp }, { binding: 2, resource: { buffer: dirV } }] });
+      compBG = device.createBindGroup({ layout: compPipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: tex.hv }, { binding: 1, resource: tex.av }, { binding: 2, resource: smp }, { binding: 3, resource: { buffer: comp } }] });
+    };
+    R.setSim = function (S) {
+      R.sim = S;
+      partBG = device.createBindGroup({ layout: partPipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: uni } }, { binding: 1, resource: { buffer: S.bufs.pos } }, { binding: 2, resource: { buffer: S.bufs.B } }] });
+      boxBG = device.createBindGroup({ layout: boxPipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: uni } }] });
+    };
+    R.draw = function (cam, look) {
+      const S = R.sim; if (!S || !tex) return;
+      const eye = [cam.rad * Math.cos(cam.el) * Math.sin(cam.az), cam.rad * Math.sin(cam.el), cam.rad * Math.cos(cam.el) * Math.cos(cam.az)];
+      f32.set(lookAt(eye, [0, 0, 0], [0, 1, 0]), 0);
+      f32.set(perspective((42 * Math.PI) / 180, R.w / R.h, 0.05, 50), 16);
+      f32[32] = R.w; f32[33] = R.h; f32[34] = look.size * R.dpr; f32[35] = look.opacity;
+      f32[36] = look.slab; f32[37] = cam.rad; u32[38] = S.N; f32[39] = look.boost === undefined ? 1.2 : look.boost;
+      device.queue.writeBuffer(uni, 0, R.ubuf);
+      device.queue.writeBuffer(comp, 0, new Float32Array([look.exposure, look.bloom, 0, 0]));
+      const enc = device.createCommandEncoder();
+      let p = enc.beginRenderPass({ colorAttachments: [{ view: tex.hv, clearValue: { r: 0, g: 0, b: 0, a: 0 }, loadOp: 'clear', storeOp: 'store' }] });
+      p.setPipeline(boxPipe); p.setBindGroup(0, boxBG); p.draw(24);
+      p.setPipeline(partPipe); p.setBindGroup(0, partBG); p.draw(6, S.Np);
+      p.end();
+      const fsPass = (view, pipe, group, load) => {
+        const q = enc.beginRenderPass({ colorAttachments: [{ view, clearValue: { r: 0, g: 0, b: 0, a: 1 }, loadOp: 'clear', storeOp: 'store' }] });
+        q.setPipeline(pipe); q.setBindGroup(0, group); q.draw(3); q.end();
+      };
+      if (look.bloom > 0) {
+        fsPass(tex.av, downPipe, downBG);
+        fsPass(tex.bv, blurPipe, blurHBG);
+        fsPass(tex.av, blurPipe, blurVBG);
+        fsPass(tex.bv, blurPipe, blurHBG); /* второй проход: шире ореол */
+        fsPass(tex.av, blurPipe, blurVBG);
+      } else {
+        const q = enc.beginRenderPass({ colorAttachments: [{ view: tex.av, clearValue: { r: 0, g: 0, b: 0, a: 1 }, loadOp: 'clear', storeOp: 'store' }] }); q.end();
+      }
+      fsPass(ctx.getCurrentTexture().createView(), compPipe, compBG);
+      device.queue.submit([enc.finish()]);
+    };
+    R.dispose = function () { if (tex) { tex.hdr.destroy(); tex.a.destroy(); tex.b.destroy(); } uni.destroy(); dirH.destroy(); dirV.destroy(); comp.destroy(); try { ctx.unconfigure(); } catch (e) { /* уже снят */ } };
+    return R;
+  }
+
+  root.GpuRender = { createRenderer };
+})(typeof self !== 'undefined' ? self : globalThis);
+
+</script>
+<script>
+(function () {
+  'use strict';
+  var K = window.Cosmo, C = K.C;
+  var $ = function (id) { return document.getElementById(id); };
+  var fmt = function (x, d) { return x.toFixed(d).replace('.', ','); };
+  var clamp = function (v, a, b) { return Math.max(a, Math.min(b, v)); };
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- состояние ---------- */
+  var S = null, playing = true, building = false, budget = 0, rate = 10;
+  var M = innerWidth < 720 ? 32 : 64, seed = 2026, L = 100, cm = 'pk';
+  var slabT = 0.3, sizeK = 1, bright = 1, auto = !reduce, drag = false;
+  var az = 0.7, el = 0.32, rad = 3.4;
+  if (reduce) $('auto').checked = false;
+
+  /* ---------- вид: WebGPU или three.js ---------- */
+  var engine = 'cpu', viewKind = null, gpuDev = null, gpuSizes = [], gview = null, statsDirty = false, bloomK = 0.6, badgeNote = '';
+  var renderer = null, scene, camera, points, geometry, material, positions, colors;
+
+  function freshCanvas() {
+    var old = $('gl'), n = document.createElement('canvas');
+    n.id = 'gl'; n.setAttribute('role', 'img'); n.setAttribute('aria-label', old.getAttribute('aria-label') || '');
+    old.parentNode.replaceChild(n, old); return n;
+  }
+  function initThree(cvn) {
+    renderer = new THREE.WebGLRenderer({ canvas: cvn, antialias: false, powerPreference: 'high-performance' });
+    renderer.setClearColor(0x04060c, 1);
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(42, 1, 0.05, 50);
+    material = new THREE.ShaderMaterial({
+      uniforms: { uSize: { value: 2 }, uPR: { value: 1 }, uDist: { value: 3.4 }, uSlab: { value: 0.3 }, uOpacity: { value: 0.5 } },
+      vertexShader: [
+        'attribute vec3 aCol;',
+        'uniform float uSize, uPR, uDist, uSlab;',
+        'varying vec3 vCol; varying float vVis;',
+        'void main(){',
+        '  vec4 mv = modelViewMatrix * vec4(position, 1.0);',
+        '  float depth = -mv.z;',
+        '  vVis = 1.0 - smoothstep(uSlab * 0.75, uSlab, abs(depth - uDist));',
+        '  vCol = aCol;',
+        '  gl_PointSize = uSize * uPR * (3.4 / depth);',
+        '  gl_Position = projectionMatrix * mv;',
+        '}'
+      ].join('\n'),
+      fragmentShader: [
+        'uniform float uOpacity; varying vec3 vCol; varying float vVis;',
+        'void main(){',
+        '  float d = length(gl_PointCoord - 0.5) * 2.0;',
+        '  if (d > 1.0 || vVis < 0.002) discard;',
+        '  float a = 1.0 - d * d; a *= a;',
+        '  gl_FragColor = vec4(vCol, a * uOpacity * vVis);',
+        '}'
+      ].join('\n'),
+      transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending
+    });
+    geometry = new THREE.BufferGeometry();
+    points = new THREE.Points(geometry, material);
+    points.frustumCulled = false;
+    scene.add(points);
+    scene.add(new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(2, 2, 2)), new THREE.LineBasicMaterial({ color: 0x2b3b6b, transparent: true, opacity: 0.75 })));
+  }
+
+  function resizeView() {
+    var st = $('stage'), w = st.clientWidth, h = st.clientHeight;
+    if (!w || !h) return;
+    var pr = Math.min(window.devicePixelRatio || 1, 2);
+    if (viewKind === 'gpu' && gview) gview.resize(w, h, pr);
+    else if (viewKind === 'cpu' && renderer) {
+      renderer.setPixelRatio(pr); renderer.setSize(w, h, false);
+      camera.aspect = w / h; camera.updateProjectionMatrix();
+      material.uniforms.uPR.value = pr;
+    }
+  }
+  new ResizeObserver(resizeView).observe($('stage'));
+
+  /* палитра по плотности для процессорного вида: пустоты → нити → узлы */
+  var stops = [[0, .04, .06, .22], [.3, .10, .26, .60], [.5, .25, .70, .85], [.72, .92, .93, .85], [1, 1, .58, .18]];
+  var LUT = new Float32Array(256 * 3);
+  (function () {
+    for (var i = 0; i < 256; i++) {
+      var t = i / 255, j = 0;
+      while (j < stops.length - 2 && t > stops[j + 1][0]) j++;
+      var a = stops[j], b = stops[j + 1], u = clamp((t - a[0]) / (b[0] - a[0]), 0, 1);
+      for (var c = 0; c < 3; c++) LUT[i * 3 + c] = a[c + 1] + (b[c + 1] - a[c + 1]) * u;
+    }
+  })();
+
+  function gpuLook() {
+    var n = S && S.N ? S.N : 128, f = 64 / n;
+    return {
+      size: 2.7 * Math.sqrt(f) * sizeK,
+      opacity: bright * 0.55 * Math.min(1.4, Math.max(0.2, 0.3 / slabT)) * Math.pow(f, 1.7),
+      slab: slabT >= 0.995 ? 20 : slabT, exposure: 1.5, bloom: bloomK, boost: 1.2
+    };
+  }
+  function applyLook() {
+    $('slabV').textContent = slabT >= 0.995 ? 'весь объём' : Math.round(slabT * L) + ' Мпк/h';
+    if (viewKind === 'cpu' && material) {
+      var u = material.uniforms;
+      u.uSize.value = (M === 32 ? 3.4 : 2.1) * sizeK;
+      u.uSlab.value = slabT >= 0.995 ? 20 : slabT;
+      u.uOpacity.value = bright * 0.5 * Math.min(1.4, Math.max(0.2, 0.3 / slabT)) * (M === 32 ? 1.5 : 1);
+    }
+  }
+
+  function makeGeometry() {
+    var n = 3 * S.Np;
+    positions = new Float32Array(n); colors = new Float32Array(n);
+    var g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    g.setAttribute('aCol', new THREE.BufferAttribute(colors, 3));
+    points.geometry = g; geometry.dispose(); geometry = g;
+  }
+
+  function updateRender() {
+    var pos = S.pos, rho = S.rho, k = 2 / S.M, Np = S.Np;
+    for (var p = 0, j = 0; p < Np; p++, j += 3) {
+      positions[j] = pos[j] * k - 1; positions[j + 1] = pos[j + 1] * k - 1; positions[j + 2] = pos[j + 2] * k - 1;
+      var r = rho[p]; if (r < 0.05) r = 0.05;
+      var t = (Math.log(r) * 0.4342945 + 1) / 3.1;
+      var ci = (t <= 0 ? 0 : t >= 1 ? 255 : (t * 255) | 0) * 3;
+      colors[j] = LUT[ci]; colors[j + 1] = LUT[ci + 1]; colors[j + 2] = LUT[ci + 2];
+    }
+    geometry.attributes.position.needsUpdate = true;
+    geometry.attributes.aCol.needsUpdate = true;
+  }
+
+  /* переключение вида: у холста может быть только один тип контекста, поэтому холст пересоздаётся */
+  function ensureView() {
+    if (viewKind === engine) return true;
+    if (viewKind === 'gpu' && gview) { gview.dispose(); gview = null; }
+    if (viewKind === 'cpu' && renderer) { renderer.dispose(); if (renderer.forceContextLoss) renderer.forceContextLoss(); renderer = null; }
+    viewKind = null;
+    var cvn = freshCanvas();
+    if (engine === 'gpu') {
+      try { gview = GpuRender.createRenderer(gpuDev, cvn); viewKind = 'gpu'; }
+      catch (e) { badgeNote = 'Рендер WebGPU не запустился, считаю на процессоре'; engine = 'cpu'; return ensureView(); }
+    } else {
+      try { initThree(cvn); viewKind = 'cpu'; }
+      catch (e) { $('glfail').hidden = false; $('busy').hidden = true; return false; }
+    }
+    resizeView(); return true;
+  }
+
+  /* ---------- шкала времени ---------- */
+  (function () {
+    var s0 = Math.log(1 / (1 + C.zi)), tr = $('track');
+    [[20, '20'], [10, '10'], [5, '5'], [2, '2'], [1, '1'], [0.5, '0,5'], [0, 'z = 0']].forEach(function (zz) {
+      var f = (Math.log(1 / (1 + zz[0])) - s0) / (0 - s0), u = document.createElement('u');
+      u.style.left = (f * 100) + '%';
+      if (zz[0] === 0) u.className = 'end';
+      var sp = document.createElement('span'); sp.textContent = zz[1]; u.appendChild(sp); tr.appendChild(u);
+    });
+  })();
+
+  /* ---------- HUD ---------- */
+  function hud() {
+    var a = S.a, z = 1 / a - 1;
+    $('zv').textContent = z >= 10 ? fmt(z, 1) : fmt(z, 2);
+    $('age').textContent = fmt(K.ageGyr(a), 2);
+    $('av').textContent = fmt(a, 3);
+    $('prog').style.width = (((S.s - S.s0) / (0 - S.s0)) * 100) + '%';
+    $('stepV').textContent = S.n + ' / ' + S.nSteps;
+    var g = S.growth();
+    $('growV').textContent = fmt((g.meas / g.theory) * 100, 1) + ' %';
+  }
+
+  /* ---------- графики ---------- */
+  var cv = $('chart'), cx = cv.getContext('2d');
+  var KMIN = 0.05, KMAX = 2.6, PMIN = 1e-2, PMAX = 1e5, klin = [], plin = [];
+  var sup = function (n) { return String(n).replace(/-/g, '⁻').replace(/\d/g, function (d) { return '⁰¹²³⁴⁵⁶⁷⁸⁹'[d]; }); };
+  var INK = '#8591b0', GRID = '#141d36';
+  function setRanges() {
+    KMIN = S.kf * 0.85; KMAX = S.kNyq * 1.1;
+    PMIN = L > 100 ? 0.1 : 1e-2; PMAX = 1e5;
+    klin = []; plin = [];
+    for (var i = 0; i <= 120; i++) { var kk = Math.exp(Math.log(KMIN) + (Math.log(KMAX) - Math.log(KMIN)) * i / 120); klin.push(kk); plin.push(K.P0(kk)); }
+  }
+  function niceTicks(lo, hi, n) {
+    var span = hi - lo, step = Math.pow(10, Math.floor(Math.log10(span / n))), err = span / n / step;
+    step *= err >= 7 ? 10 : err >= 3 ? 5 : err >= 1.5 ? 2 : 1;
+    var out = [], v = Math.ceil(lo / step - 1e-9) * step;
+    for (; v <= hi + 1e-9; v += step) out.push(+v.toPrecision(12));
+    return { v: out, step: step };
+  }
+  function fnum(v, step) { var d = step >= 1 ? 0 : Math.min(3, Math.ceil(-Math.log10(step) - 1e-9)); return v.toFixed(d).replace('.', ','); }
+  function prep() {
+    var dpr = Math.min(window.devicePixelRatio || 1, 2), w = cv.clientWidth, h = cv.clientHeight;
+    if (!w || !h) return null;
+    if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+    cx.setTransform(dpr, 0, 0, dpr, 0, 0); cx.clearRect(0, 0, w, h);
+    cx.font = '10px "IBM Plex Mono", ui-monospace, monospace'; cx.lineWidth = 1; cx.setLineDash([]); cx.globalAlpha = 1;
+    return { w: w, h: h, ml: 40, mr: 8, mt: 10, mb: 26, pw: w - 48, ph: h - 36 };
+  }
+  function axisTitles(f, xlab, ylab) {
+    cx.fillStyle = INK; cx.textAlign = 'right'; cx.textBaseline = 'top'; cx.fillText(xlab, f.ml + f.pw, f.mt + f.ph + 16);
+    cx.textAlign = 'left'; cx.fillText(ylab, f.ml + 6, f.mt + 2);
+  }
+  function linAxes(f, x0, x1, y0, y1, xt, yt, xlab, ylab) {
+    var X = function (v) { return f.ml + (v - x0) / (x1 - x0) * f.pw; }, Y = function (v) { return f.mt + (1 - (v - y0) / (y1 - y0)) * f.ph; };
+    cx.strokeStyle = GRID; cx.fillStyle = INK; cx.textBaseline = 'middle'; cx.textAlign = 'right';
+    yt.v.forEach(function (v) { var y = Math.round(Y(v)) + 0.5; cx.beginPath(); cx.moveTo(f.ml, y); cx.lineTo(f.ml + f.pw, y); cx.stroke(); cx.fillText(fnum(v, yt.step), f.ml - 6, y); });
+    cx.textAlign = 'center'; cx.textBaseline = 'top';
+    xt.v.forEach(function (v) { var x = Math.round(X(v)) + 0.5; cx.beginPath(); cx.moveTo(x, f.mt); cx.lineTo(x, f.mt + f.ph); cx.stroke(); cx.fillText(fnum(v, xt.step), x, f.mt + f.ph + 6); });
+    axisTitles(f, xlab, ylab);
+    return { X: X, Y: Y };
+  }
+  function clipPlot(f) { cx.save(); cx.beginPath(); cx.rect(f.ml, f.mt, f.pw, f.ph); cx.clip(); }
+
+  function drawPK(f) {
+    var lk0 = Math.log(KMIN), lk1 = Math.log(KMAX), lp0 = Math.log(PMIN), lp1 = Math.log(PMAX);
+    var X = function (k) { return f.ml + (Math.log(k) - lk0) / (lk1 - lk0) * f.pw; };
+    var Y = function (p) { return f.mt + (1 - (Math.log(p) - lp0) / (lp1 - lp0)) * f.ph; };
+    cx.strokeStyle = GRID; cx.fillStyle = INK; cx.textBaseline = 'middle'; cx.textAlign = 'right';
+    for (var e = Math.ceil(Math.log10(PMIN)); e <= Math.floor(Math.log10(PMAX)); e++) {
+      var y = Math.round(Y(Math.pow(10, e))) + 0.5;
+      cx.beginPath(); cx.moveTo(f.ml, y); cx.lineTo(f.ml + f.pw, y); cx.stroke();
+      if (e % 2 === 0) cx.fillText('10' + sup(e), f.ml - 6, y);
+    }
+    cx.textAlign = 'center'; cx.textBaseline = 'top';
+    [0.01, 0.02, 0.05, 0.1, 0.2, 0.3, 0.5, 1, 2].forEach(function (k) {
+      if (k < KMIN * 1.02 || k > KMAX * 0.98) return;
+      var x = Math.round(X(k)) + 0.5;
+      cx.beginPath(); cx.moveTo(x, f.mt); cx.lineTo(x, f.mt + f.ph); cx.stroke();
+      cx.fillText(String(k).replace('.', ','), x, f.mt + f.ph + 6);
+    });
+    axisTitles(f, 'k, h/Мпк', 'P, (Мпк/h)³');
+    clipPlot(f);
+    var D2 = Math.pow(K.Dg(S.aStat !== undefined ? S.aStat : S.a), 2), i;
+    cx.strokeStyle = '#4a5f93'; cx.lineWidth = 1.2; cx.setLineDash([4, 4]); cx.beginPath();
+    for (i = 0; i < klin.length; i++) { i ? cx.lineTo(X(klin[i]), Y(plin[i])) : cx.moveTo(X(klin[i]), Y(plin[i])); }
+    cx.stroke();
+    cx.strokeStyle = '#7a86a6'; cx.setLineDash([1, 3]); cx.beginPath(); cx.moveTo(f.ml, Y(S.shot)); cx.lineTo(f.ml + f.pw, Y(S.shot)); cx.stroke();
+    var xh = X(S.kNyq * 0.5); cx.strokeStyle = '#26345c'; cx.beginPath(); cx.moveTo(xh, f.mt); cx.lineTo(xh, f.mt + f.ph); cx.stroke();
+    cx.setLineDash([]);
+    cx.strokeStyle = '#6fd3e8'; cx.lineWidth = 1.8; cx.beginPath();
+    for (i = 0; i < klin.length; i++) { i ? cx.lineTo(X(klin[i]), Y(plin[i] * D2)) : cx.moveTo(X(klin[i]), Y(plin[i] * D2)); }
+    cx.stroke();
+    var first = true; cx.strokeStyle = '#ffb061'; cx.lineWidth = 1.4; cx.beginPath();
+    for (var b = 0; b < S.nb; b++) { if (!S.pkN[b]) continue; var xx = X(S.pkK[b]), yy = Y(Math.max(S.pkP[b], 1e-6)); first ? cx.moveTo(xx, yy) : cx.lineTo(xx, yy); first = false; }
+    cx.stroke();
+    for (var b2 = 0; b2 < S.nb; b2++) {
+      if (!S.pkN[b2]) continue;
+      cx.globalAlpha = S.pkK[b2] > S.kNyq * 0.5 ? 0.45 : 1; cx.fillStyle = '#ffb061';
+      cx.beginPath(); cx.arc(X(S.pkK[b2]), Y(Math.max(S.pkP[b2], 1e-6)), 2.6, 0, 6.2832); cx.fill();
+    }
+    cx.globalAlpha = 1; cx.restore();
+    cx.fillStyle = '#5d6a8c'; cx.textAlign = 'left'; cx.textBaseline = 'bottom';
+    cx.fillText('½ k_Ny', Math.min(xh + 4, f.ml + f.pw - 36), f.mt + f.ph - 3);
+  }
+
+  function drawBAO(f) {
+    var kmax = 0.22, d = S.bao(kmax);
+    var ax = linAxes(f, 0, kmax, 0.8, 1.2, niceTicks(0, kmax, 4), niceTicks(0.8, 1.2, 4), 'k, h/Мпк', 'P / P гладкий');
+    clipPlot(f);
+    cx.strokeStyle = '#26345c'; cx.beginPath(); cx.moveTo(f.ml, ax.Y(1)); cx.lineTo(f.ml + f.pw, ax.Y(1)); cx.stroke();
+    cx.strokeStyle = '#6fd3e8'; cx.lineWidth = 1.8; cx.beginPath();
+    d.th.forEach(function (o, i) { i ? cx.lineTo(ax.X(o.k), ax.Y(o.r)) : cx.moveTo(ax.X(o.k), ax.Y(o.r)); });
+    cx.stroke();
+    cx.strokeStyle = '#ffb061'; cx.lineWidth = 1.4; cx.beginPath();
+    d.meas.forEach(function (o, i) { var y = ax.Y(clamp(o.r, 0.79, 1.21)); i ? cx.lineTo(ax.X(o.k), y) : cx.moveTo(ax.X(o.k), y); });
+    cx.stroke(); cx.fillStyle = '#ffb061';
+    d.meas.forEach(function (o) { cx.beginPath(); cx.arc(ax.X(o.k), ax.Y(clamp(o.r, 0.79, 1.21)), 2.6, 0, 6.2832); cx.fill(); });
+    cx.restore();
+    cx.fillStyle = INK; cx.textAlign = 'right'; cx.textBaseline = 'top';
+    cx.fillText('период Δk = 2π/r_s ≈ ' + fmt(2 * Math.PI / K.rs, 3), f.ml + f.pw - 4, f.mt + 2);
+  }
+
+  function drawXI(f) {
+    S.xi();
+    var r0 = 40, r1 = 170, g = Math.pow(K.Dg(S.aStat !== undefined ? S.aStat : S.a) / K.Dg(Math.exp(S.s0)), 2);
+    var pts = [], i, lo = 1e9, hi = -1e9;
+    for (i = 0; i < S.nR; i++) {
+      if (!S.xiN[i]) continue;
+      var r = S.xiR[i]; if (r < r0 || r > r1) continue;
+      var m = r * r * S.xiV[i], l = r * r * S.xi0[i] * g;
+      pts.push({ r: r, m: m, l: l });
+      lo = Math.min(lo, m, l); hi = Math.max(hi, m, l);
+    }
+    var pad = (hi - lo) * 0.1 || 1e-3; lo -= pad; hi += pad;
+    var yt = niceTicks(lo, hi, 4);
+    var ax = linAxes(f, r0, r1, lo, hi, niceTicks(r0, r1, 5), yt, 'r, Мпк/h', 'r²ξ(r)');
+    clipPlot(f);
+    cx.strokeStyle = '#7a86a6'; cx.setLineDash([1, 3]); cx.beginPath(); cx.moveTo(ax.X(K.rs), f.mt); cx.lineTo(ax.X(K.rs), f.mt + f.ph); cx.stroke();
+    cx.strokeStyle = '#6fd3e8'; cx.lineWidth = 1.5; cx.setLineDash([4, 3]); cx.beginPath();
+    pts.forEach(function (o, j) { j ? cx.lineTo(ax.X(o.r), ax.Y(o.l)) : cx.moveTo(ax.X(o.r), ax.Y(o.l)); });
+    cx.stroke(); cx.setLineDash([]);
+    cx.strokeStyle = '#ffb061'; cx.lineWidth = 2; cx.beginPath();
+    pts.forEach(function (o, j) { j ? cx.lineTo(ax.X(o.r), ax.Y(o.m)) : cx.moveTo(ax.X(o.r), ax.Y(o.m)); });
+    cx.stroke(); cx.restore();
+    cx.fillStyle = INK; cx.textAlign = 'left'; cx.textBaseline = 'top';
+    cx.fillText('r_s = ' + fmt(K.rs, 0), Math.min(ax.X(K.rs) + 5, f.ml + f.pw - 56), f.mt + 14);
+  }
+
+  function drawChart() {
+    if (!S) return;
+    var f = prep(); if (!f) return;
+    if (cm === 'bao' && L > 100) drawBAO(f);
+    else if (cm === 'xi' && L > 100) drawXI(f);
+    else drawPK(f);
+  }
+
+  var NOTES = {
+    pk: 'Рост длинных мод: мощность на самых больших волнах (размер куба и его половина или треть), делённая на линейную теорию D(a)². Пока рост линейный, отношение близко к 100 %. Позже его меняет нелинейная связь мод, а на малых масштабах появляется избыток мощности над линейной кривой.',
+    bao: 'Колебания видны как отклонения от единицы с периодом Δk = 2π/r_s. Плавный наклон спектра вычтен полиномом 3-й степени, так обрабатывают и данные обзоров галактик. Фазы колебаний в расчёте совпадают с теорией. Сетка занижает рост на малых масштабах, поэтому абсолютную амплитуду на поздних временах брать нельзя, а нелинейное размытие колебаний здесь получается слабее реального.',
+    xi: 'Звуковая волна от начального сгустка уходит на r_s ≈ 102 Мпк/h и даёт избыток пар галактик на этом расстоянии: на кривой r²ξ(r) это горб. Голубая линия показывает то же начальное поле, выросшее по линейной теории. Оранжевая линия показывает расчёт: движение частиц смазывает горб, отчасти из-за грубой сетки. Кривые сглажены гауссом 6,6 Мпк/h.'
+  };
+  var TITLES = { pk: 'Спектр мощности P(k)', bao: 'Акустические осцилляции в спектре', xi: 'Корреляционная функция ξ(r)' };
+  function setChart(mode) {
+    cm = mode;
+    [].forEach.call($('segChart').querySelectorAll('button'), function (b) { b.setAttribute('aria-pressed', b.dataset.c === mode ? 'true' : 'false'); });
+    ['pk', 'bao', 'xi'].forEach(function (m) { $('leg-' + m).hidden = m !== mode; });
+    $('h-pk').textContent = TITLES[mode]; $('chartNote').textContent = NOTES[mode];
+    var labels = { pk: 'График спектра мощности: расчёт и линейная теория', bao: 'График отношения спектра мощности к гладкому: колебания БАО', xi: 'График корреляционной функции в зависимости от расстояния' };
+    cv.setAttribute('aria-label', labels[mode]);
+    drawChart();
+  }
+  function refreshTabs() {
+    [].forEach.call($('segChart').querySelectorAll('button'), function (b) { if (b.dataset.c !== 'pk') b.disabled = L <= 100; });
+    if (L <= 100 && cm !== 'pk') setChart('pk');
+  }
+  $('segChart').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b && !b.disabled) setChart(b.dataset.c); });
+  $('chartNote').textContent = NOTES.pk;
+
+  /* ---------- сборка расчёта ---------- */
+  function syncPlay() {
+    var b = $('play');
+    b.textContent = building ? 'Считаю…' : (S && S.done) ? 'Ещё раз' : playing ? 'Пауза' : 'Пуск';
+    b.disabled = building;
+  }
+  var buildToken = 0;
+  function rebuild() {
+    var token = ++buildToken;
+    building = true; playing = false; syncPlay(); $('busy').hidden = false;
+    $('busy').textContent = engine === 'gpu' ? 'Собираю шейдеры и начальные условия на видеокарте…' : 'Готовлю начальные условия…';
+    setTimeout(async function () {
+      try {
+        if (S && S.dispose) { S.dispose(); }
+        S = null;
+        if (!ensureView()) return;
+        if (engine === 'gpu') {
+          S = await GpuCosmo.createSim(gpuDev, M, { L: L, fixed: L > 100, seed: seed });
+          if (token !== buildToken) { S.dispose(); return; }
+          gview.setSim(S); resizeView();
+          S.onstats = function () { statsDirty = true; };
+        } else {
+          S = K.build(M, seed, { L: L, fixed: L > 100 });
+          makeGeometry(); updateRender();
+        }
+      } catch (e) {
+        if (engine === 'gpu') {
+          badgeNote = 'Видеокарта не справилась (' + String(e.message || e).slice(0, 60) + '), считаю на процессоре';
+          engine = 'cpu'; syncEngineUI(); fillRes(); rebuild(); return;
+        }
+        $('busy').textContent = 'Не удалось запустить расчёт: ' + (e.message || e); return;
+      }
+      setRanges(); refreshTabs(); applyLook(); setBadge();
+      $('pL').textContent = L + ' Мпк/h';
+      $('boxnote').textContent = L > 100 ? 'куб 600 Мпк/h ≈ 2,9 млрд св. лет' : 'куб 100 Мпк/h ≈ 480 млн св. лет';
+      $('pN').textContent = S.Np.toLocaleString('ru-RU');
+      $('pC').textContent = fmt(S.cell, 2) + ' Мпк/h';
+      $('chartNote').textContent = NOTES[cm];
+      $('bloomRow').hidden = engine !== 'gpu';
+      budget = 0; building = false; playing = true; $('busy').hidden = true;
+      syncPlay(); hud(); drawChart();
+    }, 40);
+  }
+  function setBadge() {
+    var t = engine === 'gpu' ? '<b>WebGPU</b>' + (gpuDev && gpuDev.desc ? ' · ' + gpuDev.desc.replace(/</g, '') : '') : '<b>Процессор</b> · JavaScript';
+    $('badge').innerHTML = t + (badgeNote ? '<br>' + badgeNote.replace(/</g, '') : '');
+  }
+  function fillRes() {
+    var opts = engine === 'gpu' ? gpuSizes : [32, 64];
+    if (opts.indexOf(M) < 0) M = engine === 'gpu' ? (innerWidth < 720 && opts.indexOf(64) >= 0 ? 64 : (opts.indexOf(128) >= 0 ? 128 : opts[opts.length - 1])) : (innerWidth < 720 ? 32 : 64);
+    if (L > 100 && M < 64 && opts.indexOf(64) >= 0) M = 64;
+    $('segRes').innerHTML = opts.map(function (n) { return '<button type="button" data-m="' + n + '" aria-pressed="' + (n === M) + '">' + n + '³</button>'; }).join('');
+  }
+  function syncEngineUI() {
+    [].forEach.call($('segEng').querySelectorAll('button'), function (b) { b.setAttribute('aria-pressed', b.dataset.e === engine ? 'true' : 'false'); });
+  }
+
+  /* ---------- управление ---------- */
+  function seg(id, attr, cb) {
+    var root = $(id);
+    root.addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      [].forEach.call(root.querySelectorAll('button'), function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+      cb(b.getAttribute(attr));
+    });
+  }
+  seg('segRes', 'data-m', function (v) { if (+v !== M) { M = +v; rebuild(); } });
+  seg('segBox', 'data-l', function (v) {
+    if (+v === L) return;
+    L = +v;
+    if (L > 100 && M < 64) { M = 64; fillRes(); }
+    rebuild();
+  });
+  seg('segEng', 'data-e', function (v) {
+    if (v === engine || building) { syncEngineUI(); return; }
+    if (v === 'gpu' && !gpuDev) { syncEngineUI(); return; }
+    engine = v; badgeNote = ''; fillRes(); rebuild();
+  });
+  seg('segSpd', 'data-r', function (v) { rate = v === 'max' ? Infinity : +v; });
+  $('play').addEventListener('click', function () {
+    if (building) return;
+    if (S && S.done) { rebuild(); return; }
+    playing = !playing; syncPlay();
+    if (!playing && S && S.gpu) S.refreshStats().then(function () { hud(); drawChart(); });
+  });
+  $('restart').addEventListener('click', function () { if (!building) rebuild(); });
+  $('newU').addEventListener('click', function () {
+    if (building) return;
+    seed = Math.floor(Math.random() * 1e6); $('seed').value = seed; rebuild();
+  });
+  $('seed').addEventListener('change', function () {
+    var v = Math.floor(+$('seed').value); if (isFinite(v) && v >= 0 && v !== seed && !building) { seed = v; rebuild(); }
+  });
+  $('slab').addEventListener('input', function () { slabT = +$('slab').value; applyLook(); });
+  $('psize').addEventListener('input', function () { sizeK = +$('psize').value; applyLook(); });
+  $('bright').addEventListener('input', function () { bright = +$('bright').value; applyLook(); });
+  $('bloom').addEventListener('input', function () { bloomK = +$('bloom').value; });
+  $('auto').addEventListener('change', function () { auto = $('auto').checked; });
+
+  /* ---------- камера ---------- */
+  var gl = $('stage'), ptrs = new Map(), pinch0 = 1, rad0 = rad;
+  gl.style.cursor = 'grab';
+  function pdist() { var a = Array.from(ptrs.values()); return Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y) || 1; }
+  gl.addEventListener('pointerdown', function (e) {
+    try { gl.setPointerCapture(e.pointerId); } catch (err) { /* не критично */ }
+    ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); drag = true;
+    if (ptrs.size === 2) { pinch0 = pdist(); rad0 = rad; }
+    gl.style.cursor = 'grabbing';
+  });
+  gl.addEventListener('pointermove', function (e) {
+    var p = ptrs.get(e.pointerId); if (!p) return;
+    var dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY;
+    if (ptrs.size === 1) { az -= dx * 0.006; el = clamp(el + dy * 0.006, -1.45, 1.45); }
+    else if (ptrs.size === 2) rad = clamp(rad0 * pinch0 / pdist(), 1.8, 7);
+  });
+  var up = function (e) { ptrs.delete(e.pointerId); if (!ptrs.size) { drag = false; gl.style.cursor = 'grab'; } };
+  gl.addEventListener('pointerup', up); gl.addEventListener('pointercancel', up);
+  gl.addEventListener('wheel', function (e) { e.preventDefault(); rad = clamp(rad * Math.exp(e.deltaY * 0.0012), 1.8, 7); }, { passive: false });
+
+  /* ---------- главный цикл ---------- */
+  var last = performance.now();
+  function frame(now) {
+    requestAnimationFrame(frame);
+    var dt = Math.min(0.1, (now - last) / 1000); last = now;
+    var changed = false;
+    if (S && playing && !building && !S.done) {
+      if (S.gpu) {
+        budget = Math.min(budget + dt * rate, rate === Infinity ? 6 : 3);
+        while (budget >= 1 && !S.done && S.inflight < 3) { S.step(); budget -= 1; changed = true; }
+        if (S.done) { playing = false; syncPlay(); S.refreshStats().then(function () { hud(); drawChart(); }); }
+      } else {
+        budget = Math.min(budget + dt * rate, rate === Infinity ? 1e9 : 3);
+        var t0 = performance.now();
+        while (budget >= 1 && !S.done) {
+          S.step(); budget -= 1; changed = true;
+          if (performance.now() - t0 > 28) break;
+        }
+        if (S.done) { playing = false; syncPlay(); }
+      }
+    }
+    if (changed && !S.gpu) updateRender();
+    if (changed || statsDirty) { statsDirty = false; hud(); drawChart(); }
+    if (auto && !drag) az += dt * 0.08;
+    if (building || !S) return;
+    if (viewKind === 'gpu' && gview) {
+      gview.draw({ az: az, el: el, rad: rad }, gpuLook());
+    } else if (viewKind === 'cpu' && renderer) {
+      camera.position.set(rad * Math.cos(el) * Math.sin(az), rad * Math.sin(el), rad * Math.cos(el) * Math.cos(az));
+      camera.lookAt(0, 0, 0);
+      material.uniforms.uDist.value = rad;
+      renderer.render(scene, camera);
+    }
+  }
+  window.addEventListener('resize', function () { drawChart(); });
+  if (window.ResizeObserver) new ResizeObserver(function () { drawChart(); }).observe(cv);
+
+  async function start() {
+    $('busy').textContent = 'Проверяю видеокарту…';
+    try {
+      gpuDev = (window.GpuCosmo && navigator.gpu) ? await GpuCosmo.requestDevice() : null;
+    } catch (e) { gpuDev = null; }
+    if (gpuDev) {
+      gpuSizes = GpuCosmo.maxN(gpuDev.limits).filter(function (n) { return n >= 64; });
+      if (!gpuSizes.length) gpuDev = null;
+    }
+    if (gpuDev) {
+      engine = 'gpu';
+      gpuDev.device.addEventListener('uncapturederror', function (e) { badgeNote = 'Ошибка WebGPU: ' + String(e.error && e.error.message || '').slice(0, 70); setBadge(); });
+      gpuDev.device.lost.then(function (info) { badgeNote = 'Видеокарта отключилась: ' + (info && info.message ? info.message.slice(0, 50) : 'причина неизвестна'); setBadge(); });
+    } else {
+      engine = 'cpu';
+      badgeNote = (navigator.gpu ? 'WebGPU не дал видеокарту' : 'WebGPU здесь недоступен') + ', считаю на процессоре';
+      var gb = $('segEng').querySelector('button[data-e="gpu"]'); gb.disabled = true; gb.title = 'WebGPU недоступен в этом браузере';
+    }
+    syncEngineUI(); fillRes(); setBadge();
+    requestAnimationFrame(function (t) { last = t; frame(t); });
+    rebuild();
+  }
+  start();
+})();
+</script>
+
+</body></html>
